@@ -8,7 +8,7 @@ install-release:
 	unset CONDA_PREFIX && \
 	source .venv/bin/activate && maturin develop --release
 
-pc:
+pre-commit:
 	cargo fmt --all && cargo clippy --all-features
 	uv tool run ruff check . --fix --exit-non-zero-on-fix
 	uv tool run ruff format awesome_cossim tests
