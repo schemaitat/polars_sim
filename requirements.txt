@@ -1,0 +1,3 @@
+pip
+maturin
+polars

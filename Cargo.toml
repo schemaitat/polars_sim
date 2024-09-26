@@ -1,0 +1,19 @@
+[package]
+name = "polars-sim"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "polars_sim"
+crate-type = ["cdylib"]
+
+[dependencies]
+itertools = "0.13.0"
+lazy_static = "1.5.0"
+ngrams = "1.0.1"
+polars = "0.43.1"
+polars-core = "0.43.1"
+polars-lazy = "0.43.1"
+pyo3 = { version = "0.22.3", features = ["extension-module", "abi3-py38"] }
+pyo3-polars = { version = "0.17.0", features = ["derive", "lazy"] }
+rayon = "1.10.0"
