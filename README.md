@@ -23,30 +23,36 @@ pip install polars_sim
 import polars as pl
 import polars_sim as ps
 
-df_left = pl.DataFrame({
-    "name" : ["Alice", "Bob", "Charlie", "David"],
-})
+df_left = pl.DataFrame(
+    {
+        "name": ["Alice", "Bob", "Charlie", "David"],
+    }
+)
 
-df_right = pl.DataFrame({
-    "name" : ["Ali", "Bobby", "Tom"],
-})
+df_right = pl.DataFrame(
+    {
+        "name": ["Ali", "Alice in Wonderland", "Bobby", "Tom"],
+    }
+)
 
 df = ps.join_sim(
     df_left,
     df_right,
     on="name",
-    ntop=2,
+    ntop=4,
+    normalize=True,
 )
 
-shape: (2, 5)
-┌─────┬───────┬─────┬──────┬────────────┐
-│ row ┆ name  ┆ col ┆ data ┆ name_right │
-│ --- ┆ ---   ┆ --- ┆ ---  ┆ ---        │
-│ u32 ┆ str   ┆ u32 ┆ i64  ┆ str        │
-╞═════╪═══════╪═════╪══════╪════════════╡
-│ 0   ┆ Alice ┆ 1   ┆ 2    ┆ Alicia     │
-│ 1   ┆ Bob   ┆ 2   ┆ 1    ┆ Bobby      │
-└─────┴───────┴─────┴──────┴────────────┘
+shape: (3, 3)
+┌───────┬──────────┬─────────────────────┐
+│ name  ┆ sim      ┆ name_right          │
+│ ---   ┆ ---      ┆ ---                 │
+│ str   ┆ f64      ┆ str                 │
+╞═══════╪══════════╪═════════════════════╡
+│ Alice ┆ 0.57735  ┆ Ali                 │
+│ Alice ┆ 0.522233 ┆ Alice in Wonderland │
+│ Bob   ┆ 0.57735  ┆ Bobby               │
+└───────┴──────────┴─────────────────────┘
 ```
 
 # Notes
