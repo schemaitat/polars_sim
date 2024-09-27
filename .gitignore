@@ -1,12 +1,6 @@
 .ipynb_checkpoints
 .pickle
 
-# Local, quick adhoc test only purpose
-tests/*.ipynb
-tests/test.ipynb
-tests/sample.csv
-tests/test*.csv
-
 /target
 
 # Mkdocs
