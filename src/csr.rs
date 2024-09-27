@@ -53,3 +53,18 @@ pub fn transpose_csr(csr: &Csr) -> Csr {
         cols: csr.rows,
     }
 }
+
+pub fn normalize_rows(csr: &mut Csr) {
+    for row in 0..csr.rows {
+        let start = csr.indptr[row];
+        let end = csr.indptr[row + 1];
+        let mut sum = 0.0;
+        for idx in start..end {
+            sum += csr.data[idx] * csr.data[idx];
+        }
+        let norm = sum.sqrt();
+        for idx in start..end {
+            csr.data[idx] /= norm;
+        }
+    }
+}

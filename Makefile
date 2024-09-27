@@ -11,7 +11,7 @@ install-release:
 pre-commit:
 	cargo fmt --all && cargo clippy --all-features
 	uv tool run ruff check . --fix --exit-non-zero-on-fix
-	uv tool run ruff format awesome_cossim tests
+	uv tool run ruff format python tests
 
 test:
 	pytest tests

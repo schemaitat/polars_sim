@@ -1,11 +1,19 @@
 [project]
 name = "polars_sim"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+  { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
+]
+description = "Fast similarity join for polars DataFrames."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "polars[pyarrow]>=1.8.2",
+]
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
 [build-system]

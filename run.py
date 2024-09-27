@@ -1,17 +1,24 @@
-import polars_sim as ac
 import polars as pl
+import polars_sim as ps
 
-df_left = pl.DataFrame({"names" : ["John", "Doe", "Jane", "Doe", "John", "Jane"]})
-df_right = pl.DataFrame({"names" : ["John", "Doe", "Jane", "Doe", "John", "Jane"]})
-
-# df_left = pl.concat([df_left for _ in range(100_000)])
-# df_right = pl.concat([df_right for _ in range(10_000)])
-
-s = ac.join_sim(
-    df_left, 
-    df_right, 
-    on="names",
-    ntop=10,
+df_left = pl.DataFrame(
+    {
+        "name": ["Alice", "Bob", "Charlie", "David"],
+    }
 )
 
-print(s)
+df_right = pl.DataFrame(
+    {
+        "name": ["Ali", "Alice in Wonderland", "Bobby", "Tom"],
+    }
+)
+
+df = ps.join_sim(
+    df_left,
+    df_right,
+    on="name",
+    ntop=4,
+    normalize=True,
+)
+
+print(df)

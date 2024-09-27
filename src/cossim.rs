@@ -17,7 +17,7 @@ lazy_static! {
 
 fn generate_ngrams() -> Vec<Vec<char>> {
     let alphabet = ('a'..='z').collect::<Vec<char>>();
-    
+
     iproduct!(alphabet.iter(), alphabet.iter(), alphabet.iter())
         .map(|(a, b, c)| vec![*a, *b, *c])
         .collect::<Vec<Vec<char>>>()
@@ -32,6 +32,10 @@ fn generate_ngram_index_mapping(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, us
     ngram_index_mapping
 }
 
+fn normalize_string(s: &str) -> String {
+    s.to_lowercase()
+}
+
 fn transform(sa: &Series) -> Csr {
     let mut indptr = vec![0];
     let mut indices = vec![];
@@ -40,10 +44,10 @@ fn transform(sa: &Series) -> Csr {
     let sa = sa.str().unwrap();
 
     for s in sa.into_iter() {
-        let s = s.unwrap();
+        let s = normalize_string(s.unwrap());
         let ngram = s.chars().ngrams(3).pad();
         let mut nnz = 0;
-        for ngram_value in  ngram {
+        for ngram_value in ngram {
             if let Some(index) = MAPPING.get(&ngram_value) {
                 nnz += 1;
                 indices.push(*index);
@@ -139,11 +143,17 @@ fn compute_cossim(
     sb: &Series,
     ntop: usize,
     row_offset: usize,
+    normalize: bool,
 ) -> PolarsResult<DataFrame> {
-    let a = transform(sa);
-    let b = transpose_csr(&transform(sb));
+    let mut a = transform(sa);
+    let mut b = transform(sb);
 
-    let c = sparse_dot_topn(&a, &b, ntop);
+    if normalize {
+        normalize_rows(&mut a);
+        normalize_rows(&mut b);
+    }
+
+    let c = sparse_dot_topn(&a, &transpose_csr(&b), ntop);
 
     let mut rows = vec![];
     let mut indices = vec![];
@@ -156,14 +166,14 @@ fn compute_cossim(
         for jj in jj_start..jj_end {
             rows.push((i + row_offset) as i64);
             indices.push(c.indices[jj] as i64);
-            data.push(c.data[jj] as i64);
+            data.push(c.data[jj] as f64);
         }
     }
 
     DataFrame::new(vec![
         Series::new("row".into(), rows),
         Series::new("col".into(), indices),
-        Series::new("data".into(), data),
+        Series::new("sim".into(), data),
     ])
 }
 
@@ -174,8 +184,11 @@ pub(super) fn awesome_cossim(
     col_right: &str,
     ntop: usize,
     threads: Option<usize>,
+    normalize: Option<bool>,
 ) -> PolarsResult<DataFrame> {
     let threads = threads.unwrap_or(rayon::current_num_threads());
+    let normalize = normalize.unwrap_or(false);
+
     if threads > 1 {
         let offsets = split_offsets(df_left.height(), threads);
 
@@ -187,13 +200,13 @@ pub(super) fn awesome_cossim(
                     .unwrap()
                     .slice(*offset as i64, *len);
                 let sb = df_right.column(col_right).unwrap();
-                compute_cossim(&sa, sb, ntop, *offset)
+                compute_cossim(&sa, sb, ntop, *offset, normalize)
             })
             .collect::<PolarsResult<Vec<_>>>()?;
         Ok(accumulate_dataframes_vertical(dfs)?)
     } else {
         let sa = df_left.column(col_left).unwrap();
         let sb = df_right.column(col_right).unwrap();
-        compute_cossim(sa, sb, ntop, 0)
+        compute_cossim(sa, sb, ntop, 0, normalize)
     }
 }

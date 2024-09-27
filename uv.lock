@@ -62,17 +62,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pl-awesome-cossim"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "polars", extra = ["pyarrow"] },
-]
-
-[package.metadata]
-requires-dist = [{ name = "polars", extras = ["pyarrow"], specifier = ">=1.8.2" }]
-
-[[package]]
 name = "polars"
 version = "1.8.2"
 source = { registry = "https://pypi.org/simple" }
@@ -89,6 +78,17 @@ wheels = [
 pyarrow = [
     { name = "pyarrow" },
 ]
+
+[[package]]
+name = "polars-sim"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "polars", extra = ["pyarrow"] },
+]
+
+[package.metadata]
+requires-dist = [{ name = "polars", extras = ["pyarrow"], specifier = ">=1.8.2" }]
 
 [[package]]
 name = "pyarrow"
