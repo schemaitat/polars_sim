@@ -14,7 +14,7 @@ pre-commit:
 	uv tool run ruff format python tests
 
 test:
-	pytest tests
+	source .venv/bin/activate  && pytest tests
 
 run: install
 	source .venv/bin/activate && python run.py
