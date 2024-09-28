@@ -1,0 +1,5 @@
+sparse_dot_topn
+scikit-learn
+scipy
+marimo
+faker
