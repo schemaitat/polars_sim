@@ -187,6 +187,7 @@ pub(super) fn awesome_cossim(
     normalize: Option<bool>,
 ) -> PolarsResult<DataFrame> {
     let threads = threads.unwrap_or(rayon::current_num_threads());
+
     let normalize = normalize.unwrap_or(false);
 
     if threads > 1 {

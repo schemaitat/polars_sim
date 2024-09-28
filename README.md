@@ -17,6 +17,22 @@ The `join_sim` function is similar to `join_asof` but for strings instead of tim
 pip install polars_sim
 ```
 
+## Development
+
+We use [uv](https://docs.astral.sh/uv/) for python package management. Furthermore, you need rust to be installed, see [install rust](https://www.rust-lang.org/tools/install). You won't need to activate an enviroment by yourself at any point. This is handled by uv. To get started, run
+```bash
+# create a virtual environment
+uv venv --seed -p 3.11
+# install dependencies
+uv pip install -e .
+# install dev dependencies
+uv pip install -r requirements.txt
+# compiple rust code
+make install 
+# run tests
+make test
+```
+
 ## Usage
 
 ```python
@@ -40,7 +56,6 @@ df = ps.join_sim(
     df_right,
     on="name",
     ntop=4,
-    normalize=True,
 )
 
 shape: (3, 3)
@@ -55,6 +70,6 @@ shape: (3, 3)
 └───────┴──────────┴─────────────────────┘
 ```
 
-# Notes
+# References
 
 The implementation is based on an algorithm used in [sparse_dot_topn](https://github.com/ing-bank/sparse_dot_topn), which itself is an improvement of the scipy sparse matrix multiplication.

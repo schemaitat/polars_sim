@@ -1,19 +1,19 @@
 import polars as pl
-from polars_sim import join_sim
 from polars.testing import assert_frame_equal
+import polars_sim as ps
 
 
 def test_join_sim_basic():
     left = pl.DataFrame({"s": ["aaa", "aabbb", "abc"]})
     right = pl.DataFrame({"t": ["aaa", "aab", "def"]})
 
-    result = join_sim(
+    result = ps.join_sim(
         left,
         right,
         left_on="s",
         right_on="t",
         ntop=1,
-        normalize=False,
+        normalization="count",
         threads=1,
         add_mapping=True,
         add_similarity=True,
