@@ -1,6 +1,6 @@
 use crate::csr::*;
 use crate::helper::split_offsets;
-use itertools::iproduct;
+use itertools::{iproduct, Itertools};
 use lazy_static::lazy_static;
 use ngrams::Ngram;
 use polars::prelude::*;
@@ -47,7 +47,11 @@ fn transform(sa: &Series) -> Csr {
         let s = normalize_string(s.unwrap());
         let ngram = s.chars().ngrams(3).pad();
         let mut nnz = 0;
-        for ngram_value in ngram {
+        // TODO: eventually we could use tfidf or similar
+        // and add up the occurences of the ngram
+        // only add ngram once
+        // make sure to make match this with the csr::normlize_rows method
+        for ngram_value in ngram.unique() {
             if let Some(index) = MAPPING.get(&ngram_value) {
                 nnz += 1;
                 indices.push(*index);

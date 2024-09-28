@@ -21,3 +21,6 @@ run: install
 
 run-release: install-release
 	source .venv/bin/activate && python run.py
+
+edit-bench:
+	uv run --with-requirements benchmark/requirements.txt marimo edit benchmark/bench.py 

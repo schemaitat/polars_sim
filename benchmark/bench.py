@@ -1,12 +1,13 @@
 import marimo
 
-__generated_with = "0.8.20"
+__generated_with = "0.8.21"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def __():
     import marimo as mo
+
     return (mo,)
 
 
@@ -20,6 +21,7 @@ def __():
 
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sparse_dot_topn import sp_matmul_topn
+
     return Faker, TfidfVectorizer, pl, ps, sp_matmul_topn, time
 
 
@@ -27,20 +29,16 @@ def __():
 def __(Faker):
     fake = Faker()
     fake.seed_instance(4321)
-    names_small = [fake.name() for _ in range(5000)]
-    names_big = [fake.name() for _ in range(100_00)]
+    names_small = [fake.name() for _ in range(500)]
+    names_big = [fake.name() for _ in range(100_000)]
     return fake, names_big, names_small
 
 
 @app.cell
 def __(names_big, names_small, pl):
-    df_left = pl.DataFrame({
-        "name": names_small
-    })
+    df_left = pl.DataFrame({"name": names_small})
 
-    df_right = pl.DataFrame({
-        "name": names_big
-    })
+    df_right = pl.DataFrame({"name": names_big})
     return df_left, df_right
 
 
@@ -48,18 +46,19 @@ def __(names_big, names_small, pl):
 def __(df_left, df_right, ps, time):
     def benchmark_topn():
         times = []
-        for i in range(1,10):
+        for i in range(1, 10):
             start = time.time()
             ps.join_sim(
                 df_left,
                 df_right,
                 on="name",
                 ntop=i,
-                normalize=True,
+                normalization="l2",
             )
             end = time.time()
-            times.append(end-start)
+            times.append(end - start)
         return times
+
     return (benchmark_topn,)
 
 
@@ -72,6 +71,18 @@ def __(benchmark_topn):
 @app.cell
 def __(ntop_times):
     ntop_times
+    return
+
+
+@app.cell
+def __(df_left, df_right, ps):
+    ps.join_sim(
+        df_left,
+        df_right,
+        on="name",
+        ntop=1,
+        normalization="l2",
+    ).sort("sim").tail(20)
     return
 
 
