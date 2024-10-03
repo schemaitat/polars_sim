@@ -51,5 +51,5 @@ def test_join_sim_basic(left, right, expected):
         expected,
         check_column_order=False,
         check_dtypes=False,
-        atol=1e-6,
+        atol=1e-31,
     )

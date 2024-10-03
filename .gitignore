@@ -71,3 +71,7 @@ docs/_build/
 # Polars Extension
 .so
 .dll
+
+# benchmarks
+benchmark/*.html
+.marimo
