@@ -1,13 +1,12 @@
 import marimo
 
-__generated_with = "0.8.22"
+__generated_with = "0.9.1"
 app = marimo.App(width="medium", app_title="Benchmark", auto_download=["html"])
 
 
 @app.cell
 def __():
     import marimo as mo
-
     return (mo,)
 
 
@@ -29,7 +28,6 @@ def __():
     from faker import Faker
 
     import plotly.express as px
-
     return Faker, cpu_count, pl, ps, px, time
 
 
@@ -41,7 +39,6 @@ def __(mo):
             return default
         else:
             return type(arg_val)
-
     return (get_arg,)
 
 
@@ -56,8 +53,10 @@ def __(get_arg):
 @app.cell
 def __(pl):
     def append_row(df: pl.DataFrame, data):
+        """
+        Append a row to a polars dataframe.
+        """
         return pl.concat([df, pl.DataFrame(data)], how="vertical_relaxed")
-
     return (append_row,)
 
 
@@ -78,21 +77,26 @@ def __(names_big, names_small, pl):
 
 
 @app.cell
-def __(append_row, df_left, df_right, pl, ps, time):
+def __(Iterable, append_row, pl, ps, time):
     def benchmark(
+        df_left: pl.DataFrame,
+        df_right: pl.DataFrame,
         argument_name: str,
-        argument_values,
+        argument_values: Iterable,
         value_dtype,
         **kwargs,
     ) -> pl.DataFrame:
+        
         if kwargs is None:
             kwargs = {}
 
-        df = pl.DataFrame(
+        df_bench = pl.DataFrame(
             schema={
                 "argument_name": pl.Utf8,
                 "argument_value": value_dtype,
                 "time": pl.Float32,
+                "size_left" : pl.Int32,
+                "size_right" : pl.Int32,
             }
         )
 
@@ -104,55 +108,66 @@ def __(append_row, df_left, df_right, pl, ps, time):
             )
 
             start = time.time()
-            ps.join_sim(df_left, df_right, on="name", **kwargs)
+            ps.join_sim(df_left, df_right, **kwargs)
             end = time.time()
+            
             elapsed_time = end - start
 
-            df = append_row(
-                df,
+            df_bench = append_row(
+                df_bench,
                 [
                     {
                         "argument_name": argument_name,
                         "argument_value": val,
                         "time": elapsed_time,
+                        "size_left" : len(df_left),
+                        "size_right" : len(df_right),
                     }
                 ],
             )
 
-        return df
-
+        return df_bench
     return (benchmark,)
 
 
 @app.cell
-def __(px, size_left, size_right):
-    def plot_benchmark(df):
-        argument_name = df["argument_name"].unique()[0]
+def __(px):
+    def plot_benchmark(df_bench):
+        argument_name = df_bench["argument_name"].unique()[0]
+        size_left = df_bench["size_left"].unique()[0]
+        size_right = df_bench["size_right"].unique()[0]
+        
         fig = px.bar(
-            df,
+            df_bench,
             x="argument_value",
             y="time",
             title=f"Execution time for different {argument_name} values.<br>Dataframe dimensions: ({size_left},{size_right}).",
         )
+        
         return fig
-
     return (plot_benchmark,)
 
 
 @app.cell
-def __(cpu_count, pl):
+def __(cpu_count, df_left, df_right, pl):
     benchmarks = {
         "ntop": {
+            "df_left": df_left,
+            "df_right": df_right,
             "argument_name": "ntop",
             "argument_values": range(1, 100, 10),
             "value_dtype": pl.Int32,
         },
         "threads": {
+            "df_left": df_left,
+            "df_right": df_right,
             "argument_name": "threads",
             "argument_values": range(1, cpu_count() + 1),
             "value_dtype": pl.Int32,
         },
-        "normalization": {
+        "normalizatåion": {
+            "df_left": df_left,
+            "df_right": df_right,
             "argument_name": "normalization",
             "argument_values": ["l2", "count"],
             "value_dtype": pl.Utf8,
@@ -165,26 +180,14 @@ def __(cpu_count, pl):
 def __(benchmark, benchmarks, plot_benchmark):
     figs = {}
     for name, kw in benchmarks.items():
-        df = benchmark(**kw)
+        df = benchmark(on="name", **kw)
         figs[name] = plot_benchmark(df)
     return df, figs, kw, name
 
 
 @app.cell
 def __(figs):
-    figs["ntop"]
-    return
-
-
-@app.cell
-def __(figs):
-    figs["threads"]
-    return
-
-
-@app.cell
-def __(figs):
-    figs["normalization"]
+    figs
     return
 
 

@@ -4,7 +4,6 @@ use itertools::{iproduct, Itertools};
 use lazy_static::lazy_static;
 use ngrams::Ngram;
 use polars::prelude::*;
-use polars_core::utils::accumulate_dataframes_vertical;
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -32,10 +31,6 @@ fn generate_ngram_index_mapping(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, us
     ngram_index_mapping
 }
 
-fn normalize_string(s: &str) -> String {
-    s.to_lowercase()
-}
-
 fn transform(sa: &Series) -> Csr {
     let mut indptr = vec![0];
     let mut indices = vec![];
@@ -44,7 +39,7 @@ fn transform(sa: &Series) -> Csr {
     let sa = sa.str().unwrap();
 
     for s in sa.into_iter() {
-        let s = normalize_string(s.unwrap());
+        let s = s.unwrap();
         let ngram = s.chars().ngrams(3).pad();
         let mut nnz = 0;
         // TODO: eventually we could use tfidf or similar
@@ -146,31 +141,47 @@ fn compute_cossim(
     sa: &Series,
     sb: &Series,
     ntop: usize,
-    row_offset: usize,
     normalize: bool,
+    threads: usize,
 ) -> PolarsResult<DataFrame> {
-    let mut a = transform(sa);
-    let mut b = transform(sb);
-
-    if normalize {
-        normalize_rows(&mut a);
-        normalize_rows(&mut b);
-    }
-
-    let c = sparse_dot_topn(&a, &transpose_csr(&b), ntop);
 
     let mut rows = vec![];
     let mut indices = vec![];
     let mut data = vec![];
 
-    for i in 0..c.rows {
-        let jj_start = c.indptr[i];
-        let jj_end = c.indptr[i + 1];
+    let offsets = split_offsets(sa.len(), threads);
 
-        for jj in jj_start..jj_end {
-            rows.push((i + row_offset) as i64);
-            indices.push(c.indices[jj] as i64);
-            data.push(c.data[jj] as f64);
+    let mut b = transform(sb);
+    if normalize {
+        normalize_rows(&mut b);
+    }
+    let b = transpose_csr(&b);
+
+    let csr_batches = offsets
+        .par_iter()
+        .map(|(offset, len)| {
+            let sa_batch = sa
+                .slice(*offset as i64, *len);
+            let mut a = transform(&sa_batch);
+            if normalize {
+                normalize_rows(&mut a);
+            }
+            sparse_dot_topn(&a, &b, ntop)
+        })
+        .collect::<Vec<Csr>>();
+
+    for (k, c) in  csr_batches.into_iter().enumerate() {
+        let row_offset = offsets[k].0;
+
+        for i in 0..c.rows {
+            let jj_start = c.indptr[i];
+            let jj_end = c.indptr[i + 1];
+
+            for jj in jj_start..jj_end {
+                rows.push((i + row_offset) as i64);
+                indices.push(c.indices[jj] as i64);
+                data.push(c.data[jj] as f64);
+            }
         }
     }
 
@@ -191,27 +202,9 @@ pub(super) fn awesome_cossim(
     normalize: Option<bool>,
 ) -> PolarsResult<DataFrame> {
     let threads = threads.unwrap_or(rayon::current_num_threads());
-
     let normalize = normalize.unwrap_or(false);
 
-    if threads > 1 {
-        let offsets = split_offsets(df_left.height(), threads);
-
-        let dfs = offsets
-            .par_iter()
-            .map(|(offset, len)| {
-                let sa = df_left
-                    .column(col_left)
-                    .unwrap()
-                    .slice(*offset as i64, *len);
-                let sb = df_right.column(col_right).unwrap();
-                compute_cossim(&sa, sb, ntop, *offset, normalize)
-            })
-            .collect::<PolarsResult<Vec<_>>>()?;
-        Ok(accumulate_dataframes_vertical(dfs)?)
-    } else {
-        let sa = df_left.column(col_left).unwrap();
-        let sb = df_right.column(col_right).unwrap();
-        compute_cossim(sa, sb, ntop, 0, normalize)
-    }
+    let sa = df_left.column(col_left).unwrap();
+    let sb = df_right.column(col_right).unwrap();
+    compute_cossim(sa, sb, ntop, normalize, threads)
 }
