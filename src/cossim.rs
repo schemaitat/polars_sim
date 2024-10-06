@@ -144,8 +144,14 @@ fn compute_cossim(
     normalize: bool,
     threads: usize,
 ) -> PolarsResult<DataFrame> {
+    // TODO: It seems to be benefitial if the bigger series is parallelized.
+    // If we parallelize the right series, we get for each row on the left
+    // threads blocks on the right, each containing ntop matches.
+    // The ntop overall matches are then the ntop matches of all blocks.
 
+    // we could make that fixed size of len(sa) * ntop
     let mut rows = vec![];
+
     let mut indices = vec![];
     let mut data = vec![];
 

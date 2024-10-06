@@ -75,3 +75,4 @@ docs/_build/
 # benchmarks
 benchmark/*.html
 .marimo
+benchmark/__marimo__
