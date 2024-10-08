@@ -7,6 +7,7 @@ app = marimo.App(width="medium", app_title="Benchmark", auto_download=["html"])
 @app.cell
 def __():
     import marimo as mo
+
     return (mo,)
 
 
@@ -28,6 +29,7 @@ def __():
     from faker import Faker
 
     import plotly.express as px
+
     return Faker, cpu_count, pl, ps, px, time
 
 
@@ -39,6 +41,7 @@ def __(mo):
             return default
         else:
             return type(arg_val)
+
     return (get_arg,)
 
 
@@ -57,6 +60,7 @@ def __(pl):
         Append a row to a polars dataframe.
         """
         return pl.concat([df, pl.DataFrame(data)], how="vertical_relaxed")
+
     return (append_row,)
 
 
@@ -86,7 +90,6 @@ def __(Iterable, append_row, pl, ps, time):
         value_dtype,
         **kwargs,
     ) -> pl.DataFrame:
-        
         if kwargs is None:
             kwargs = {}
 
@@ -95,8 +98,8 @@ def __(Iterable, append_row, pl, ps, time):
                 "argument_name": pl.Utf8,
                 "argument_value": value_dtype,
                 "time": pl.Float32,
-                "size_left" : pl.Int32,
-                "size_right" : pl.Int32,
+                "size_left": pl.Int32,
+                "size_right": pl.Int32,
             }
         )
 
@@ -110,7 +113,7 @@ def __(Iterable, append_row, pl, ps, time):
             start = time.time()
             ps.join_sim(df_left, df_right, **kwargs)
             end = time.time()
-            
+
             elapsed_time = end - start
 
             df_bench = append_row(
@@ -120,13 +123,14 @@ def __(Iterable, append_row, pl, ps, time):
                         "argument_name": argument_name,
                         "argument_value": val,
                         "time": elapsed_time,
-                        "size_left" : len(df_left),
-                        "size_right" : len(df_right),
+                        "size_left": len(df_left),
+                        "size_right": len(df_right),
                     }
                 ],
             )
 
         return df_bench
+
     return (benchmark,)
 
 
@@ -136,15 +140,16 @@ def __(px):
         argument_name = df_bench["argument_name"].unique()[0]
         size_left = df_bench["size_left"].unique()[0]
         size_right = df_bench["size_right"].unique()[0]
-        
+
         fig = px.bar(
             df_bench,
             x="argument_value",
             y="time",
             title=f"Execution time for different {argument_name} values.<br>Dataframe dimensions: ({size_left},{size_right}).",
         )
-        
+
         return fig
+
     return (plot_benchmark,)
 
 
@@ -172,6 +177,13 @@ def __(cpu_count, df_left, df_right, pl):
             "argument_values": ["l2", "count"],
             "value_dtype": pl.Utf8,
         },
+        "threading_coordinate": {
+            "df_left": df_left,
+            "df_right": df_right,
+            "argument_name": "threading",
+            "argument_values": ["left", "right"],
+            "value_dtype": pl.Utf8,
+        },
     }
     return (benchmarks,)
 
@@ -180,9 +192,12 @@ def __(cpu_count, df_left, df_right, pl):
 def __(benchmark, benchmarks, plot_benchmark):
     figs = {}
     for name, kw in benchmarks.items():
-        df = benchmark(on="name", **kw)
-        figs[name] = plot_benchmark(df)
-    return df, figs, kw, name
+        df_l = benchmark(on="name", **kw, threading="left")
+        df_r = benchmark(on="name", **kw, threading="right")
+
+        figs[f"{name}_left"] = plot_benchmark(df_l)
+        figs[f"{name}_right"] = plot_benchmark(df_r)
+    return df_l, df_r, figs, kw, name
 
 
 @app.cell

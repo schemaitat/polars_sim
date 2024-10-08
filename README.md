@@ -55,7 +55,7 @@ df = ps.join_sim(
     df_left,
     df_right,
     on="name",
-    ntop=4,
+    top_n=4,
 )
 
 shape: (3, 3)
@@ -69,6 +69,13 @@ shape: (3, 3)
 │ Bob   ┆ 0.57735  ┆ Bobby               │
 └───────┴──────────┴─────────────────────┘
 ```
+
+# Performance
+
+A benchmark can be executed with `make run-bench`. 
+In general, the performance heavily depends on the length of the dataframes.
+By default, the computation is parallelized over one of the two dataframes, depending on the sizes.
+If the left dataframe is comparatively small, the computation is parallelized over the right dataframe and vice versa. The behaviour can be fixed with the `threading_dimenstion` parameter.
 
 # References
 

@@ -10,12 +10,13 @@ def join_sim(
     on: str | None = None,
     left_on: str | None = None,
     right_on: str | None = None,
-    ntop: int = 1,
+    top_n: int = 1,
     normalization: Literal["l2", "count"] = "l2",
     threads: int | None = None,
     suffix: str = "_right",
     add_mapping: bool = False,
     add_similarity: bool = True,
+    threading_dimension: Literal["left", "right", "auto"] = "auto",
 ) -> pl.DataFrame:
     """
     Compute the cosine similarity between two DataFrames.
@@ -46,6 +47,19 @@ def join_sim(
 
     normalize: bool = True
 
+    match threading_dimension:
+        case "left":
+            parallelize_left = True
+        case "right":
+            parallelize_left = False
+        case "auto":
+            if len(left) < len(right) * 10:
+                parallelize_left = True
+            else:
+                parallelize_left = False
+        case _:
+            raise ValueError(f"Threading {threading_dimension} not supported")
+
     match normalization:
         case "l2":
             normalize = True
@@ -57,7 +71,7 @@ def join_sim(
     # TODO: Find the dtype that matches both rust and the polars version
     # call the rust function
     _map = awesome_cossim(
-        left, right, left_on, right_on, ntop, threads, normalize
+        left, right, left_on, right_on, top_n, threads, normalize, parallelize_left
     ).cast(
         {
             "row": pl.UInt32,

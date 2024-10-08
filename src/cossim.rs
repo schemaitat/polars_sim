@@ -66,9 +66,11 @@ fn transform(sa: &Series) -> Csr {
 }
 
 fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
-    let mut indptr = vec![0];
-    let mut indices = vec![];
-    let mut data = vec![];
+    let mut indptr = Vec::with_capacity(a.rows+1);
+    let mut indices = Vec::with_capacity(a.rows * ntop);
+    let mut data = Vec::with_capacity(a.rows * ntop);
+
+    indptr.push(0);
 
     let rows = a.rows;
     let cols = b.cols;
@@ -80,8 +82,9 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
 
     assert_eq!(an, bm);
 
+    let mut sums = vec![0 as f64; bn];
+
     for i in 0..am {
-        let mut sums = vec![0 as f64; bn];
         let mut candidates = vec![];
 
         let jj_start = a.indptr[i];
@@ -143,53 +146,94 @@ fn compute_cossim(
     ntop: usize,
     normalize: bool,
     threads: usize,
+    parallelize_left: bool,
 ) -> PolarsResult<DataFrame> {
-    // TODO: It seems to be benefitial if the bigger series is parallelized.
-    // If we parallelize the right series, we get for each row on the left
-    // threads blocks on the right, each containing ntop matches.
-    // The ntop overall matches are then the ntop matches of all blocks.
 
-    // we could make that fixed size of len(sa) * ntop
     let mut rows = vec![];
-
     let mut indices = vec![];
     let mut data = vec![];
 
-    let offsets = split_offsets(sa.len(), threads);
+    if parallelize_left {
 
-    let mut b = transform(sb);
-    if normalize {
-        normalize_rows(&mut b);
-    }
-    let b = transpose_csr(&b);
+        let offsets = split_offsets(sa.len(), threads);
 
-    let csr_batches = offsets
-        .par_iter()
-        .map(|(offset, len)| {
-            let sa_batch = sa
-                .slice(*offset as i64, *len);
-            let mut a = transform(&sa_batch);
-            if normalize {
-                normalize_rows(&mut a);
-            }
-            sparse_dot_topn(&a, &b, ntop)
-        })
-        .collect::<Vec<Csr>>();
-
-    for (k, c) in  csr_batches.into_iter().enumerate() {
-        let row_offset = offsets[k].0;
-
-        for i in 0..c.rows {
-            let jj_start = c.indptr[i];
-            let jj_end = c.indptr[i + 1];
-
-            for jj in jj_start..jj_end {
-                rows.push((i + row_offset) as i64);
-                indices.push(c.indices[jj] as i64);
-                data.push(c.data[jj] as f64);
-            }
+        let mut b = transform(sb);
+        if normalize {
+            normalize_rows(&mut b);
         }
+        let b = transpose_csr(&b);
+
+        let csr_batches = offsets
+            .par_iter()
+            .map(|(offset, len)| {
+                let sa_batch = sa
+                    .slice(*offset as i64, *len);
+                let mut a = transform(&sa_batch);
+                if normalize {
+                    normalize_rows(&mut a);
+                }
+                sparse_dot_topn(&a, &b, ntop)
+            })
+            .collect::<Vec<Csr>>();
+
+            for (k, c) in  csr_batches.into_iter().enumerate() {
+                let row_offset = offsets[k].0;
+
+                for i in 0..c.rows {
+                    let jj_start = c.indptr[i];
+                    let jj_end = c.indptr[i + 1];
+
+                    for jj in jj_start..jj_end {
+                        rows.push((i + row_offset) as i64);
+                        indices.push(c.indices[jj] as i64);
+                        data.push(c.data[jj] as f64);
+                    }
+                }
+            }
+
+    } else {
+        // we parallelize over the right series
+        // this produces for each row on the left ntop * threads matches
+        // after that we reduce the matches to the overall top ntop matches
+
+        let offsets = split_offsets(sb.len(), threads);
+
+        let mut a = transform(sa);
+        if normalize {
+            normalize_rows(&mut a);
+        }
+
+        let csr_batches = offsets
+            .par_iter()
+            .map(|(offset, len)| {
+                let sb_batch = sb
+                    .slice(*offset as i64, *len);
+                let mut b = transform(&sb_batch);
+                if normalize {
+                    normalize_rows(&mut b);
+                }
+                let b = transpose_csr(&b);
+                sparse_dot_topn(&a, &b, ntop)
+            })
+            .collect::<Vec<Csr>>();
+
+            // the batches now have dimension rows_left x embedding_size
+            // next, we need to reduce the batches to the top n matches
+            let reduced_csr = topn_from_csr_batches(csr_batches, ntop);
+
+            for i in 0..reduced_csr.rows {
+                let jj_start = reduced_csr.indptr[i];
+                let jj_end = reduced_csr.indptr[i + 1];
+
+                for jj in jj_start..jj_end {
+                    rows.push(i as i64);
+                    indices.push(reduced_csr.indices[jj] as i64);
+                    data.push(reduced_csr.data[jj] as f64);
+                }
+            }
+
     }
+
 
     DataFrame::new(vec![
         Series::new("row".into(), rows),
@@ -206,11 +250,13 @@ pub(super) fn awesome_cossim(
     ntop: usize,
     threads: Option<usize>,
     normalize: Option<bool>,
+    parallelize_left: Option<bool>,
 ) -> PolarsResult<DataFrame> {
     let threads = threads.unwrap_or(rayon::current_num_threads());
     let normalize = normalize.unwrap_or(false);
+    let parallelize_left = parallelize_left.unwrap_or(true);
 
     let sa = df_left.column(col_left).unwrap();
     let sb = df_right.column(col_right).unwrap();
-    compute_cossim(sa, sb, ntop, normalize, threads)
+    compute_cossim(sa, sb, ntop, normalize, threads, parallelize_left)
 }

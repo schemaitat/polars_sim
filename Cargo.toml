@@ -6,6 +6,8 @@ edition = "2021"
 [lib]
 name = "polars_sim"
 crate-type = ["cdylib"]
+test = true
+path = "src/lib.rs"
 
 [dependencies]
 itertools = "0.13.0"

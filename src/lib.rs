@@ -10,7 +10,7 @@ use pyo3_polars::{PolarsAllocator, PyDataFrame};
 static ALLOC: PolarsAllocator = PolarsAllocator::new();
 
 #[pyfunction]
-#[pyo3(signature=(pydf_left, pydf_right, col_left, col_right, ntop, threads=None, normalize=None))]
+#[pyo3(signature=(pydf_left, pydf_right, col_left, col_right, ntop, threads=None, normalize=None, parallelize_left=None))]
 fn awesome_cossim(
     pydf_left: PyDataFrame,
     pydf_right: PyDataFrame,
@@ -19,12 +19,13 @@ fn awesome_cossim(
     ntop: usize,
     threads: Option<usize>,
     normalize: Option<bool>,
+    parallelize_left: Option<bool>,
 ) -> PyResult<PyDataFrame> {
     let df_left = pydf_left.into();
     let df_right = pydf_right.into();
 
     let res = cossim::awesome_cossim(
-        df_left, df_right, col_left, col_right, ntop, threads, normalize,
+        df_left, df_right, col_left, col_right, ntop, threads, normalize, parallelize_left,
     )
     .map_err(PyPolarsErr::from)?;
 
