@@ -1,4 +1,4 @@
-__version__ = "0.1.0"
+__version__ = "0.2.3"
 
 from polars_sim.dataframe.join import join_sim
 
