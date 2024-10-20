@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.9.1"
+__generated_with = "0.9.10"
 app = marimo.App(width="medium", app_title="Benchmark", auto_download=["html"])
 
 
@@ -159,7 +159,7 @@ def __(cpu_count, df_left, df_right, pl):
         "ntop": {
             "df_left": df_left,
             "df_right": df_right,
-            "argument_name": "ntop",
+            "argument_name": "top_n",
             "argument_values": range(1, 100, 10),
             "value_dtype": pl.Int32,
         },
@@ -180,7 +180,7 @@ def __(cpu_count, df_left, df_right, pl):
         "threading_coordinate": {
             "df_left": df_left,
             "df_right": df_right,
-            "argument_name": "threading",
+            "argument_name": "threading_dimension",
             "argument_values": ["left", "right"],
             "value_dtype": pl.Utf8,
         },
@@ -192,8 +192,8 @@ def __(cpu_count, df_left, df_right, pl):
 def __(benchmark, benchmarks, plot_benchmark):
     figs = {}
     for name, kw in benchmarks.items():
-        df_l = benchmark(on="name", **kw, threading="left")
-        df_r = benchmark(on="name", **kw, threading="right")
+        df_l = benchmark(on="name", **kw, threading_dimension="left")
+        df_r = benchmark(on="name", **kw, threading_dimension="right")
 
         figs[f"{name}_left"] = plot_benchmark(df_l)
         figs[f"{name}_right"] = plot_benchmark(df_r)

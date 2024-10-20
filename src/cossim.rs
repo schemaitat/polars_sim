@@ -66,7 +66,7 @@ fn transform(sa: &Series) -> Csr {
 }
 
 fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
-    let mut indptr = Vec::with_capacity(a.rows+1);
+    let mut indptr = Vec::with_capacity(a.rows + 1);
     let mut indices = Vec::with_capacity(a.rows * ntop);
     let mut data = Vec::with_capacity(a.rows * ntop);
 
@@ -82,10 +82,9 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
 
     assert_eq!(an, bm);
 
-    let mut sums = vec![0 as f64; bn];
-
     for i in 0..am {
-        let mut candidates = vec![];
+        let mut sums = vec![0 as f64; bn];
+        let mut candidates = Vec::<(usize, f64)>::with_capacity(ntop);
 
         let jj_start = a.indptr[i];
         let jj_end = a.indptr[i + 1];
@@ -113,13 +112,13 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
 
         let mut nnz = 0;
 
-        let topn_candidates = if ntop < candidates.len() {
+        let topn_candidates = if candidates.len() <= ntop {
+            candidates
+        } else {
             candidates
                 .select_nth_unstable_by(ntop, |a, b| b.1.partial_cmp(&a.1).unwrap())
                 .0
                 .to_vec()
-        } else {
-            candidates
         };
 
         for (j, v) in topn_candidates {
@@ -128,6 +127,8 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
             nnz += 1;
         }
 
+        // even if thare are no candidates (i.e. nnz=0), we push the row
+        // and potentially produce a piecewise constant indptr
         indptr.push(indptr.last().unwrap() + nnz);
     }
 
@@ -148,13 +149,11 @@ fn compute_cossim(
     threads: usize,
     parallelize_left: bool,
 ) -> PolarsResult<DataFrame> {
-
     let mut rows = vec![];
     let mut indices = vec![];
     let mut data = vec![];
 
     if parallelize_left {
-
         let offsets = split_offsets(sa.len(), threads);
 
         let mut b = transform(sb);
@@ -166,31 +165,30 @@ fn compute_cossim(
         let csr_batches = offsets
             .par_iter()
             .map(|(offset, len)| {
-                let sa_batch = sa
-                    .slice(*offset as i64, *len);
+                let sa_batch = sa.slice(*offset as i64, *len);
                 let mut a = transform(&sa_batch);
                 if normalize {
                     normalize_rows(&mut a);
                 }
-                sparse_dot_topn(&a, &b, ntop)
+                let c = sparse_dot_topn(&a, &b, ntop);
+                c
             })
             .collect::<Vec<Csr>>();
 
-            for (k, c) in  csr_batches.into_iter().enumerate() {
-                let row_offset = offsets[k].0;
+        for (k, c) in csr_batches.into_iter().enumerate() {
+            let row_offset = offsets[k].0;
 
-                for i in 0..c.rows {
-                    let jj_start = c.indptr[i];
-                    let jj_end = c.indptr[i + 1];
+            for i in 0..c.rows {
+                let jj_start = c.indptr[i];
+                let jj_end = c.indptr[i + 1];
 
-                    for jj in jj_start..jj_end {
-                        rows.push((i + row_offset) as i64);
-                        indices.push(c.indices[jj] as i64);
-                        data.push(c.data[jj] as f64);
-                    }
+                for jj in jj_start..jj_end {
+                    rows.push((i + row_offset) as i64);
+                    indices.push(c.indices[jj] as i64);
+                    data.push(c.data[jj] as f64);
                 }
             }
-
+        }
     } else {
         // we parallelize over the right series
         // this produces for each row on the left ntop * threads matches
@@ -206,8 +204,7 @@ fn compute_cossim(
         let csr_batches = offsets
             .par_iter()
             .map(|(offset, len)| {
-                let sb_batch = sb
-                    .slice(*offset as i64, *len);
+                let sb_batch = sb.slice(*offset as i64, *len);
                 let mut b = transform(&sb_batch);
                 if normalize {
                     normalize_rows(&mut b);
@@ -217,23 +214,21 @@ fn compute_cossim(
             })
             .collect::<Vec<Csr>>();
 
-            // the batches now have dimension rows_left x embedding_size
-            // next, we need to reduce the batches to the top n matches
-            let reduced_csr = topn_from_csr_batches(csr_batches, ntop);
+        // the batches now have dimension rows_left x embedding_size
+        // next, we need to reduce the batches to the top n matches
+        let reduced_csr = topn_from_csr_batches(csr_batches, ntop);
 
-            for i in 0..reduced_csr.rows {
-                let jj_start = reduced_csr.indptr[i];
-                let jj_end = reduced_csr.indptr[i + 1];
+        for i in 0..reduced_csr.rows {
+            let jj_start = reduced_csr.indptr[i];
+            let jj_end = reduced_csr.indptr[i + 1];
 
-                for jj in jj_start..jj_end {
-                    rows.push(i as i64);
-                    indices.push(reduced_csr.indices[jj] as i64);
-                    data.push(reduced_csr.data[jj] as f64);
-                }
+            for jj in jj_start..jj_end {
+                rows.push(i as i64);
+                indices.push(reduced_csr.indices[jj] as i64);
+                data.push(reduced_csr.data[jj] as f64);
             }
-
+        }
     }
-
 
     DataFrame::new(vec![
         Series::new("row".into(), rows),

@@ -33,6 +33,8 @@ def join_sim(
         threads (int | None, optional): The number of threads to use for computation. Defaults to None.
         add_mapping (bool): Whether to add the row-col mapping of df_left and df_right to the result. Defaults to False.
         add_similarity (bool): Whether to add the similarity score to the result. Defaults to True.
+        threading_dimension (Literal["left", "right", "auto"]): The dimension to parallelize. If "left", the left DataFrame
+            is parallelized. If "right", the right DataFrame is parallelized.
 
     Returns:
         pl.DataFrame: A DataFrame containing the cosine similarity results.

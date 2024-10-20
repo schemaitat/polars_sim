@@ -1,5 +1,0 @@
-pip
-maturin
-polars
-pytest
-pre-commit

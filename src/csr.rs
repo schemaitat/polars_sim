@@ -70,14 +70,16 @@ pub fn normalize_rows(csr: &mut Csr) {
     }
 }
 
-pub fn topn_from_csr_batches(batches: Vec<Csr>, ntop: usize) -> Csr{
+pub fn topn_from_csr_batches(batches: Vec<Csr>, ntop: usize) -> Csr {
     // naive implementation
     // iterate ove the rows and collect all possible ntop selections
     // to get batches.len() * ntop elements and then select the topn values
     // from that
 
-
-    assert_eq!(batches.iter().map(|b| b.rows).collect::<Vec<_>>(), vec![batches.first().unwrap().rows; batches.len()]);
+    assert_eq!(
+        batches.iter().map(|b| b.rows).collect::<Vec<_>>(),
+        vec![batches.first().unwrap().rows; batches.len()]
+    );
 
     let mut indptr = vec![0];
     let mut indices = Vec::new();
@@ -120,6 +122,4 @@ pub fn topn_from_csr_batches(batches: Vec<Csr>, ntop: usize) -> Csr{
         rows,
         cols: batches.first().unwrap().cols,
     }
-
-
-} 
+}
