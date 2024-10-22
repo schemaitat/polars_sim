@@ -1,23 +1,27 @@
 import polars_sim as ps
 import polars as pl
 
-df_left = pl.DataFrame({
-    "name": ["aaa", "aba"],
-})
+df_left = pl.DataFrame(
+    {
+        "name": ["aaa", "aba", "andre"],
+    }
+)
 
-df_right = pl.DataFrame({
-    "name": ["aaa", "aac"],
-})
+df_right = pl.DataFrame(
+    {
+        "name": ["aaa", "aac", "andre", "andreas", "andrea"],
+    }
+)
 
 res = ps.join_sim(
     df_left,
     df_right,
     on="name",
-    top_n=1,
+    top_n=2,
     normalization="l2",
     add_mapping=True,
     threading_dimension="left",
-    threads=1
+    threads=1,
 )
 
 print(df_left)

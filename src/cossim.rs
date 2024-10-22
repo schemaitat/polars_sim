@@ -3,9 +3,13 @@ use crate::helper::split_offsets;
 use itertools::{iproduct, Itertools};
 use lazy_static::lazy_static;
 use ngrams::Ngram;
+use num::Num;
 use polars::prelude::*;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{AddAssign, MulAssign},
+};
 
 lazy_static! {
     static ref MAPPING: HashMap<Vec<char>, usize> = {
@@ -31,7 +35,7 @@ fn generate_ngram_index_mapping(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, us
     ngram_index_mapping
 }
 
-fn transform(sa: &Series) -> Csr {
+fn transform<T: Num>(sa: &Series) -> CsrMatBase<T> {
     let mut indptr = vec![0];
     let mut indices = vec![];
     let mut data = vec![];
@@ -50,22 +54,20 @@ fn transform(sa: &Series) -> Csr {
             if let Some(index) = MAPPING.get(&ngram_value) {
                 nnz += 1;
                 indices.push(*index);
-                data.push(1.0);
+                data.push(T::one());
             }
         }
         indptr.push(indptr.last().unwrap() + nnz);
     }
 
-    Csr {
-        indptr,
-        indices,
-        data,
-        rows: sa.len(),
-        cols: MAPPING.len(),
-    }
+    CsrMatBase::new(indptr, indices, data, sa.len(), MAPPING.len())
 }
 
-fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
+fn sparse_dot_topn<T: Num + Copy + MulAssign + AddAssign + PartialOrd>(
+    a: &CsrMatBase<T>,
+    b: &CsrMatBase<T>,
+    ntop: usize,
+) -> CsrMatBase<T> {
     let mut indptr = Vec::with_capacity(a.rows + 1);
     let mut indices = Vec::with_capacity(a.rows * ntop);
     let mut data = Vec::with_capacity(a.rows * ntop);
@@ -83,8 +85,8 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
     assert_eq!(an, bm);
 
     for i in 0..am {
-        let mut sums = vec![0 as f64; bn];
-        let mut candidates = Vec::<(usize, f64)>::with_capacity(ntop);
+        let mut sums = vec![T::zero(); bn];
+        let mut candidates = Vec::<(usize, T)>::with_capacity(ntop);
 
         let jj_start = a.indptr[i];
         let jj_end = a.indptr[i + 1];
@@ -105,7 +107,7 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
         }
 
         for (j, score) in sums.iter().enumerate() {
-            if *score > 0.0 {
+            if *score != T::zero() {
                 candidates.push((j, *score));
             }
         }
@@ -132,109 +134,137 @@ fn sparse_dot_topn(a: &Csr, b: &Csr, ntop: usize) -> Csr {
         indptr.push(indptr.last().unwrap() + nnz);
     }
 
-    Csr {
-        indptr,
-        indices,
-        data,
-        rows,
-        cols,
-    }
+    CsrMatBase::new(indptr, indices, data, rows, cols)
 }
 
-fn compute_cossim(
-    sa: &Series,
-    sb: &Series,
+fn left_parallel_sparse_dot_top_n<
+    T: Num + Copy + MulAssign + AddAssign + PartialOrd + Send + Sync,
+>(
+    a: &CsrMatBase<T>,
+    b: &CsrMatBase<T>,
     ntop: usize,
-    normalize: bool,
     threads: usize,
-    parallelize_left: bool,
-) -> PolarsResult<DataFrame> {
-    let mut rows = vec![];
-    let mut indices = vec![];
-    let mut data = vec![];
+) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T>>) {
+    assert_eq!(a.cols, b.rows);
 
-    if parallelize_left {
-        let offsets = split_offsets(sa.len(), threads);
+    let offsets = split_offsets(a.rows, threads);
 
-        let mut b = transform(sb);
-        if normalize {
-            normalize_rows(&mut b);
-        }
-        let b = transpose_csr(&b);
+    let csr_batches = offsets
+        .par_iter()
+        .map(|(offset, len)| {
+            let a_batch = a.slice(*offset, *len);
+            sparse_dot_topn(&a_batch, b, ntop)
+        })
+        .collect::<Vec<CsrMatBase<T>>>();
 
-        let csr_batches = offsets
-            .par_iter()
-            .map(|(offset, len)| {
-                let sa_batch = sa.slice(*offset as i64, *len);
-                let mut a = transform(&sa_batch);
-                if normalize {
-                    normalize_rows(&mut a);
-                }
-                let c = sparse_dot_topn(&a, &b, ntop);
-                c
-            })
-            .collect::<Vec<Csr>>();
+    (offsets, csr_batches)
+}
 
-        for (k, c) in csr_batches.into_iter().enumerate() {
-            let row_offset = offsets[k].0;
+fn right_parallel_sparse_dot_top_n<
+    T: Num + Copy + MulAssign + AddAssign + PartialOrd + Send + Sync,
+>(
+    a: &CsrMatBase<T>,
+    b: &CsrMatBase<T>,
+    ntop: usize,
+    threads: usize,
+) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T>>) {
+    // b comes on non transposed
 
-            for i in 0..c.rows {
-                let jj_start = c.indptr[i];
-                let jj_end = c.indptr[i + 1];
+    assert_eq!(a.cols, b.cols);
 
-                for jj in jj_start..jj_end {
-                    rows.push((i + row_offset) as i64);
-                    indices.push(c.indices[jj] as i64);
-                    data.push(c.data[jj] as f64);
-                }
-            }
-        }
-    } else {
-        // we parallelize over the right series
-        // this produces for each row on the left ntop * threads matches
-        // after that we reduce the matches to the overall top ntop matches
+    let offsets = split_offsets(b.rows, threads);
 
-        let offsets = split_offsets(sb.len(), threads);
+    let csr_batches = offsets
+        .par_iter()
+        .map(|(offset, len)| {
+            let b_batch = b.slice(*offset, *len).transpose();
+            sparse_dot_topn(a, &b_batch, ntop)
+        })
+        .collect::<Vec<CsrMatBase<T>>>();
 
-        let mut a = transform(sa);
-        if normalize {
-            normalize_rows(&mut a);
-        }
+    (offsets, csr_batches)
+}
 
-        let csr_batches = offsets
-            .par_iter()
-            .map(|(offset, len)| {
-                let sb_batch = sb.slice(*offset as i64, *len);
-                let mut b = transform(&sb_batch);
-                if normalize {
-                    normalize_rows(&mut b);
-                }
-                let b = transpose_csr(&b);
-                sparse_dot_topn(&a, &b, ntop)
-            })
-            .collect::<Vec<Csr>>();
+fn chunked_csr_to_df<T>(
+    offsets: Vec<(usize, usize)>,
+    csr_batches: Vec<CsrMatBase<T>>,
+) -> PolarsResult<DataFrame>
+where
+    T: Into<f32> + Copy,
+{
+    let mut rows: Vec<i32> = vec![];
+    let mut indices: Vec<i32> = vec![];
+    let mut data: Vec<f32> = vec![];
 
-        // the batches now have dimension rows_left x embedding_size
-        // next, we need to reduce the batches to the top n matches
-        let reduced_csr = topn_from_csr_batches(csr_batches, ntop);
-
-        for i in 0..reduced_csr.rows {
-            let jj_start = reduced_csr.indptr[i];
-            let jj_end = reduced_csr.indptr[i + 1];
+    for (offset, batch) in offsets.iter().zip(csr_batches.iter()) {
+        for i in 0..batch.rows {
+            let jj_start = batch.indptr[i];
+            let jj_end = batch.indptr[i + 1];
 
             for jj in jj_start..jj_end {
-                rows.push(i as i64);
-                indices.push(reduced_csr.indices[jj] as i64);
-                data.push(reduced_csr.data[jj] as f64);
+                rows.push(i as i32 + offset.0 as i32);
+                indices.push(batch.indices[jj] as i32);
+                data.push(batch.data[jj].into());
             }
         }
     }
 
     DataFrame::new(vec![
         Series::new("row".into(), rows),
-        Series::new("col".into(), indices),
+        Series::new("col".into(), &indices),
         Series::new("sim".into(), data),
     ])
+}
+
+fn csr_to_df<T>(csr: CsrMatBase<T>) -> PolarsResult<DataFrame>
+where
+    T: Into<f32> + Copy,
+{
+    let mut rows: Vec<i32> = vec![];
+    let mut indices: Vec<i32> = vec![];
+    let mut data: Vec<f32> = vec![];
+
+    for i in 0..csr.rows {
+        let jj_start = csr.indptr[i];
+        let jj_end = csr.indptr[i + 1];
+
+        for jj in jj_start..jj_end {
+            rows.push(i as i32);
+            indices.push(csr.indices[jj] as i32);
+            data.push(csr.data[jj].into());
+        }
+    }
+
+    DataFrame::new(vec![
+        Series::new("row".into(), rows),
+        Series::new("col".into(), &indices),
+        Series::new("sim".into(), data),
+    ])
+}
+
+fn compute_cossim<T>(
+    a: CsrMatBase<T>,
+    b: CsrMatBase<T>,
+    ntop: usize,
+    threads: usize,
+    parallelize_left: bool,
+) -> PolarsResult<DataFrame>
+where
+    T: Num + Copy + MulAssign + AddAssign + PartialOrd + Send + Sync + Into<f32>,
+{
+    if parallelize_left {
+        let b = b.transpose();
+        let (offsets, batches) = left_parallel_sparse_dot_top_n(&a, &b, ntop, threads);
+
+        chunked_csr_to_df(offsets, batches)
+    } else {
+        let (_, batches) = right_parallel_sparse_dot_top_n(&a, &b, ntop, threads);
+
+        // reduce the batches to the top n matches
+        let reduced_csr = topn_from_csr_batches(batches, ntop);
+
+        csr_to_df(reduced_csr)
+    }
 }
 
 pub(super) fn awesome_cossim(
@@ -253,5 +283,19 @@ pub(super) fn awesome_cossim(
 
     let sa = df_left.column(col_left).unwrap();
     let sb = df_right.column(col_right).unwrap();
-    compute_cossim(sa, sb, ntop, normalize, threads, parallelize_left)
+
+    match normalize {
+        true => {
+            let mut a = transform::<f32>(sa);
+            let mut b = transform::<f32>(sb);
+            a.normalize_rows();
+            b.normalize_rows();
+            compute_cossim(a, b, ntop, threads, parallelize_left)
+        }
+        false => {
+            let a = transform::<u16>(sa);
+            let b = transform::<u16>(sb);
+            compute_cossim(a, b, ntop, threads, parallelize_left)
+        }
+    }
 }
