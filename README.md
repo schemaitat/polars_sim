@@ -74,8 +74,8 @@ shape: (3, 3)
 
 A benchmark can be executed with `make run-bench`. 
 In general, the performance heavily depends on the length of the dataframes.
-By default, the computation is parallelized over one of the two dataframes, depending on the sizes.
-If the left dataframe is comparatively small, the computation is parallelized over the right dataframe and vice versa. The behaviour can be fixed with the `threading_dimenstion` parameter.
+By default, the computation is parallelized over the left dataframe. However, serveral benchmarks 
+showed that if the right dataframe is much bigger than the left dataframe and no normalization is applied, it is faster to parallelize over the right dataframe.
 
 # References
 

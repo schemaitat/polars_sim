@@ -1,6 +1,9 @@
 use num::Float;
-use std::{mem::swap, ops::{AddAssign, MulAssign, RangeBounds}};
 use num::{Num, PrimInt, Unsigned};
+use std::{
+    mem::swap,
+    ops::{AddAssign, MulAssign},
+};
 
 pub trait IndPtrStorage: PrimInt + Unsigned + Default + Send + Sync + AddAssign<Self> {
     fn try_index(&self) -> Option<usize>;
@@ -8,19 +11,84 @@ pub trait IndPtrStorage: PrimInt + Unsigned + Default + Send + Sync + AddAssign<
     fn index(self) -> usize;
 
     fn index_unchecked(self) -> usize;
+
+    fn from_usize(val: usize) -> Self;
 }
 
-pub trait IndexStorage: PrimInt + Unsigned + Default +  Send + Sync {
+pub trait IndexStorage: PrimInt + Unsigned + Default + Send + Sync {
+    fn try_index(&self) -> Option<usize>;
+
+    fn index(self) -> usize;
+
+    fn index_unchecked(self) -> usize;
+
+    fn from_usize(val: usize) -> Self;
 }
 
-pub trait DataStorage: Num + Copy + MulAssign<Self> + AddAssign<Self> + PartialOrd + Send + Sync + Into<f32> {
+pub trait DataStorage:
+    Num + Copy + MulAssign<Self> + AddAssign<Self> + PartialOrd + Send + Sync + Into<f64>
+{}
+
+macro_rules! impl_indices_for_unsigned {
+    ($($t:ty),*) => {
+        $(
+            impl IndPtrStorage for $t {
+                fn try_index(&self) -> Option<usize> {
+                    Some(*self as usize)
+                }
+
+                fn index(self) -> usize {
+                    self as usize
+                }
+
+                fn index_unchecked(self) -> usize {
+                    self as usize
+                }
+
+                fn from_usize(val: usize) -> Self {
+                    val as Self
+                }
+            }
+
+            impl IndexStorage for $t {
+                fn try_index(&self) -> Option<usize> {
+                    Some(*self as usize)
+                }
+
+                fn index(self) -> usize {
+                    self as usize
+                }
+
+                fn index_unchecked(self) -> usize {
+                    self as usize
+                }
+
+                fn from_usize(val: usize) -> Self {
+                    val as Self
+                }
+            }
+        )*
+    };
 }
+
+macro_rules! impl_data_storage {
+    ($($t:ty),*) => {
+        $(
+            impl DataStorage for $t {}
+        )*
+    };
+}
+
+impl_indices_for_unsigned!(u8, u16, u32, u64, u128, usize);
+impl_data_storage!(u16, u32, f32, f64);
+
 
 #[derive(Debug)]
-pub struct CsrMatBase<T, I, J> where 
-    I : IndPtrStorage,
+pub struct CsrMatBase<T, I, J>
+where
+    I: IndPtrStorage,
     J: IndexStorage,
-    T : DataStorage 
+    T: DataStorage,
 {
     pub indptr: Vec<I>,
     pub indices: Vec<J>,
@@ -29,18 +97,13 @@ pub struct CsrMatBase<T, I, J> where
     pub cols: usize,
 }
 
-impl<T, I, J> CsrMatBase<T, I, J> where 
-    I : IndPtrStorage,
+impl<T, I, J> CsrMatBase<T, I, J>
+where
+    I: IndPtrStorage,
     J: IndexStorage,
-    T : DataStorage
+    T: DataStorage,
 {
-    pub fn new(
-        indptr: Vec<I>,
-        indices: Vec<J>,
-        data: Vec<T>,
-        rows: usize,
-        cols: usize,
-    ) -> Self {
+    pub fn new(indptr: Vec<I>, indices: Vec<J>, data: Vec<T>, rows: usize, cols: usize) -> Self {
         Self {
             indptr,
             indices,
@@ -54,8 +117,7 @@ impl<T, I, J> CsrMatBase<T, I, J> where
         self.data.len()
     }
 
-    pub fn slice(&self, start: usize, len: usize) -> CsrMatBase<T, I, J>
-    {
+    pub fn slice(&self, start: usize, len: usize) -> CsrMatBase<T, I, J> {
         let mut indptr = Vec::with_capacity(len + 1);
         let mut indices = Vec::new();
         let mut data = Vec::new();
@@ -75,26 +137,26 @@ impl<T, I, J> CsrMatBase<T, I, J> where
     }
 }
 
-impl<T> CsrMatBase<T>
+impl<T, I, J> CsrMatBase<T, I, J>
 where
-    T: num::Num,
+    T: DataStorage,
+    I: IndPtrStorage,
+    // need to add this bound to make the transpose method work with usize rows
+    J: IndexStorage 
 {
-    pub fn transpose(&self) -> CsrMatBase<T>
-    where
-        T: Clone,
-    {
-        let mut indptr = vec![0; self.cols + 1];
-        let mut indices = vec![0; self.nnz()];
+    pub fn transpose(&self) -> CsrMatBase<T, I, J> {
+        let mut indptr = vec![I::zero(); self.cols + 1];
+        let mut indices = vec![J::zero(); self.nnz()];
         let mut data = vec![T::zero(); self.nnz()];
 
         for row in 0..self.rows {
-            for idx in self.indptr[row]..self.indptr[row + 1] {
+            for idx in self.indptr[row].index()..self.indptr[row + 1].index() {
                 let col = self.indices[idx];
-                indptr[col] += 1;
+                indptr[col.index()] += I::one();
             }
         }
 
-        let mut cumsum = 0;
+        let mut cumsum = I::zero();
 
         for index in indptr.iter_mut() {
             let temp = *index;
@@ -104,17 +166,17 @@ where
         indptr[self.cols] = cumsum;
 
         for row in 0..self.rows {
-            for idx in self.indptr[row]..self.indptr[row + 1] {
+            for idx in self.indptr[row].index()..self.indptr[row + 1].index() {
                 let col = self.indices[idx];
-                let dest = indptr[col];
-                indices[dest] = row;
-                data[dest] = self.data[idx].clone();
-                indptr[col] += 1;
+                let dest = indptr[col.index()];
+                indices[dest.index()] = J::from_usize(row);
+                data[dest.index()] = self.data[idx].clone();
+                indptr[col.index()] += I::one();
             }
         }
 
-        let mut last = 0;
-        for idx in indptr.iter_mut(){
+        let mut last = I::zero();
+        for idx in indptr.iter_mut() {
             swap(&mut last, idx);
         }
 
@@ -122,7 +184,11 @@ where
     }
 }
 
-impl<T> CsrMatBase<T> {
+impl<T, I, J> CsrMatBase<T, I, J> where 
+    T: DataStorage,
+    I: IndPtrStorage,
+    J: IndexStorage
+{
     pub fn normalize_rows(&mut self)
     where
         T: Float,
@@ -131,21 +197,26 @@ impl<T> CsrMatBase<T> {
             let start = self.indptr[row];
             let end = self.indptr[row + 1];
             let mut sum = T::zero();
-            for idx in start..end {
+            for idx in start.index()..end.index() {
                 sum = sum + self.data[idx] * self.data[idx];
             }
             let norm = sum.sqrt();
-            for idx in start..end {
+            for idx in start.index()..end.index() {
                 self.data[idx] = self.data[idx] / norm;
             }
         }
     }
 }
 
-pub fn topn_from_csr_batches<T: PartialOrd + Clone>(
-    batches: Vec<CsrMatBase<T>>,
+pub fn topn_from_csr_batches<T, I, J>(
+    batches: Vec<CsrMatBase<T, I, J>>,
     ntop: usize,
-) -> CsrMatBase<T> {
+) -> CsrMatBase<T, I, J>  
+where     
+    T: DataStorage,
+    I: IndPtrStorage,
+    J: IndexStorage 
+{
     // naive implementation
     // iterate ove the rows and collect all possible ntop selections
     // to get batches.len() * ntop elements and then select the topn values
@@ -156,7 +227,7 @@ pub fn topn_from_csr_batches<T: PartialOrd + Clone>(
         vec![batches.first().unwrap().rows; batches.len()]
     );
 
-    let mut indptr = vec![0];
+    let mut indptr = vec![I::zero()];
     let mut indices = Vec::new();
     let mut data = Vec::new();
 
@@ -167,7 +238,7 @@ pub fn topn_from_csr_batches<T: PartialOrd + Clone>(
         for batch in &batches {
             let start = batch.indptr[i];
             let end = batch.indptr[i + 1];
-            for idx in start..end {
+            for idx in start.index()..end.index() {
                 candidates.push((batch.indices[idx], batch.data[idx].clone()));
             }
         }
@@ -181,13 +252,13 @@ pub fn topn_from_csr_batches<T: PartialOrd + Clone>(
             candidates
         };
 
-        let mut nnz = 0;
+        let mut nnz = I::zero();
         for (j, v) in top_candidates {
             indices.push(j);
             data.push(v);
-            nnz += 1;
+            nnz += I::one();
         }
-        indptr.push(indptr.last().unwrap() + nnz);
+        indptr.push(*indptr.last().unwrap() + nnz);
     }
 
     CsrMatBase::new(indptr, indices, data, rows, batches.first().unwrap().cols)
