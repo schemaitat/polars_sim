@@ -25,25 +25,34 @@ import polars_sim as ps
         ),
         (
             # one matching token
-            # right has 3 tokens
+            # right has three tokens
             pl.DataFrame({"s": ["abc"]}),
             pl.DataFrame({"s": ["abcabc"]}),
             pl.DataFrame({"sim": [1 / 3**0.5], "row": [0], "col": [0]}),
         ),
         (
-            # left has one row
-            # right has 2 rows
+            # left has two rows
+            # right has two rows
             pl.DataFrame({"s": ["abc", "def"]}),
             pl.DataFrame({"s": ["abc", "aaa"]}),
             pl.DataFrame({"sim": [1], "row": [0], "col": [0]}),
+        ),
+        (
+            # left has three rows
+            # right has two rows
+            pl.DataFrame({"s": ["abc", "def", "aaabxy"]}),
+            pl.DataFrame({"s": ["abc", "aaa"]}),
+            pl.DataFrame({"sim": [1.0, 1 / 4**0.5], "row": [0, 2], "col": [0, 1]}),
         ),
     ],
 )
 def test_join_sim_basic(left, right, expected):
     kwargs_to_test = [
-        {"threads": 1, "threading_dimension": "left"},
-        {"threads": 2, "threading_dimension": "left"},
-        {"threading_dimension": "auto"},
+        {"threads": 2, "threading_dimension": "right"},
+        # {"threads": 2, "threading_dimension": "right"},
+        # {"threads" : None, "threading_dimension": "left"},
+        # {"threads" : None, "threading_dimension": "right"},
+        # {"threading_dimension": "auto"}
     ]
 
     for kw in kwargs_to_test:

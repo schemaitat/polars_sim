@@ -18,8 +18,9 @@ fn generate_ngrams() -> Vec<Vec<char>> {
         .collect::<Vec<Vec<char>>>()
 }
 
-fn generate_ngram_index_mapping<J>(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, J> where 
-    J: IndexStorage 
+fn generate_ngram_index_mapping<J>(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, J>
+where
+    J: IndexStorage,
 {
     let mut ngram_index_mapping = HashMap::new();
     let mut cur_index = J::one();
@@ -30,11 +31,11 @@ fn generate_ngram_index_mapping<J>(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>,
     ngram_index_mapping
 }
 
-fn transform<T, I, J>(sa: &Series) -> CsrMatBase<T, I, J > 
-where 
-    T: DataStorage, 
+fn transform<T, I, J>(sa: &Series) -> CsrMatBase<T, I, J>
+where
+    T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     let mut indptr = Vec::with_capacity(sa.len() + 1);
     let mut indices = vec![];
@@ -68,14 +69,14 @@ where
 }
 
 fn sparse_dot_topn<T, I, J>(
-    a: &CsrMatBase<T,I,J>,
-    b: &CsrMatBase<T,I,J>,
+    a: &CsrMatBase<T, I, J>,
+    b: &CsrMatBase<T, I, J>,
     ntop: usize,
-) -> CsrMatBase<T,I,J> 
-where 
+) -> CsrMatBase<T, I, J>
+where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     let mut indptr = Vec::with_capacity(a.rows + 1);
     let mut indices = Vec::with_capacity(a.rows * ntop);
@@ -107,7 +108,7 @@ where
             let kk_start = b.indptr[j.index()];
             let kk_end = b.indptr[j.index() + 1];
 
-            for kk in kk_start.index()..kk_end.index(){
+            for kk in kk_start.index()..kk_end.index() {
                 let k = b.indices[kk];
                 let w = b.data[kk];
 
@@ -137,7 +138,7 @@ where
         for (j, v) in topn_candidates {
             indices.push(j);
             data.push(v);
-            nnz = nnz + I::one();
+            nnz += I::one();
         }
 
         // even if thare are no candidates (i.e. nnz=0), we push the row
@@ -149,15 +150,15 @@ where
 }
 
 fn left_parallel_sparse_dot_top_n<T, I, J>(
-    a: &CsrMatBase<T,I,J>,
-    b: &CsrMatBase<T,I,J>,
+    a: &CsrMatBase<T, I, J>,
+    b: &CsrMatBase<T, I, J>,
     ntop: usize,
     threads: usize,
-) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T,I,J>>) 
-where 
-    T: DataStorage, 
+) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T, I, J>>)
+where
+    T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     assert_eq!(a.cols, b.rows);
 
@@ -169,21 +170,21 @@ where
             let a_batch = a.slice(*offset, *len);
             sparse_dot_topn(&a_batch, b, ntop)
         })
-        .collect::<Vec<CsrMatBase<T,I,J>>>();
+        .collect::<Vec<CsrMatBase<T, I, J>>>();
 
     (offsets, csr_batches)
 }
 
-fn right_parallel_sparse_dot_top_n<T, I,J>(
-    a: &CsrMatBase<T,I,J>,
-    b: &CsrMatBase<T,I,J>,
+fn right_parallel_sparse_dot_top_n<T, I, J>(
+    a: &CsrMatBase<T, I, J>,
+    b: &CsrMatBase<T, I, J>,
     ntop: usize,
     threads: usize,
-) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T,I,J>>) 
-where 
+) -> (Vec<(usize, usize)>, Vec<CsrMatBase<T, I, J>>)
+where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     // b comes on non transposed
 
@@ -195,21 +196,27 @@ where
         .par_iter()
         .map(|(offset, len)| {
             let b_batch = b.slice(*offset, *len).transpose();
-            sparse_dot_topn(a, &b_batch, ntop)
+            let mut res = sparse_dot_topn(a, &b_batch, ntop);
+            // after slicing and transposing we need to shift the column indices
+            // and add offset to get the correct matching rows
+            res.indices
+                .iter_mut()
+                .for_each(|j| *j = J::from_usize(j.index() + *offset));
+            res
         })
         .collect::<Vec<CsrMatBase<T, I, J>>>();
 
     (offsets, csr_batches)
 }
 
-fn chunked_csr_to_df<T,I,J>(
+fn chunked_csr_to_df<T, I, J>(
     offsets: Vec<(usize, usize)>,
-    csr_batches: Vec<CsrMatBase<T,I,J>>,
+    csr_batches: Vec<CsrMatBase<T, I, J>>,
 ) -> PolarsResult<DataFrame>
 where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     let mut rows: Vec<i32> = vec![];
     let mut indices: Vec<i32> = vec![];
@@ -220,7 +227,7 @@ where
             let jj_start = batch.indptr[i];
             let jj_end = batch.indptr[i + 1];
 
-            for jj in jj_start.index()..jj_end.index(){
+            for jj in jj_start.index()..jj_end.index() {
                 rows.push(i as i32 + offset.0 as i32);
                 indices.push(batch.indices[jj].index() as i32);
                 data.push(batch.data[jj].into());
@@ -235,11 +242,11 @@ where
     ])
 }
 
-fn csr_to_df<T, I, J >(csr: CsrMatBase<T, I, J>) -> PolarsResult<DataFrame>
+fn csr_to_df<T, I, J>(csr: CsrMatBase<T, I, J>) -> PolarsResult<DataFrame>
 where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     let mut rows: Vec<i32> = vec![];
     let mut indices: Vec<i32> = vec![];
@@ -263,9 +270,9 @@ where
     ])
 }
 
-fn compute_cossim<T,I,J>(
-    a: CsrMatBase<T,I,J>,
-    b: CsrMatBase<T,I,J>,
+fn compute_cossim<T, I, J>(
+    a: CsrMatBase<T, I, J>,
+    b: CsrMatBase<T, I, J>,
     ntop: usize,
     threads: usize,
     parallelize_left: bool,
@@ -273,7 +280,7 @@ fn compute_cossim<T,I,J>(
 where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage 
+    J: IndexStorage,
 {
     if parallelize_left {
         let b = b.transpose();
@@ -310,7 +317,7 @@ pub(super) fn awesome_cossim(
     match normalize {
         true => {
             let mut a: FCsrMat = transform(sa);
-            let mut b: FCsrMat =  transform(sb);
+            let mut b: FCsrMat = transform(sb);
             a.normalize_rows();
             b.normalize_rows();
             compute_cossim(a, b, ntop, threads, parallelize_left)

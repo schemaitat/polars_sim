@@ -27,7 +27,8 @@ pub trait IndexStorage: PrimInt + Unsigned + Default + Send + Sync {
 
 pub trait DataStorage:
     Num + Copy + MulAssign<Self> + AddAssign<Self> + PartialOrd + Send + Sync + Into<f64>
-{}
+{
+}
 
 macro_rules! impl_indices_for_unsigned {
     ($($t:ty),*) => {
@@ -82,7 +83,6 @@ macro_rules! impl_data_storage {
 impl_indices_for_unsigned!(u8, u16, u32, u64, u128, usize);
 impl_data_storage!(u16, u32, f32, f64);
 
-
 #[derive(Debug)]
 pub struct CsrMatBase<T, I, J>
 where
@@ -119,19 +119,20 @@ where
 
     pub fn slice(&self, start: usize, len: usize) -> CsrMatBase<T, I, J> {
         let mut indptr = Vec::with_capacity(len + 1);
-        let mut indices = Vec::new();
-        let mut data = Vec::new();
+        let mut indices = Vec::with_capacity(self.nnz());
+        let mut data = Vec::with_capacity(self.nnz());
 
-        indptr.push(I::default());
+        let kk_start = self.indptr[start];
+        let kk_end = self.indptr[start + len];
 
-        for i in start..start + len {
-            let start = self.indptr[i];
-            let end = self.indptr[i + 1];
-            let nnz = end - start;
-            indptr.push(*indptr.last().unwrap() + nnz);
-            indices.extend_from_slice(&self.indices[start.index()..end.index()]);
-            data.extend_from_slice(&self.data[start.index()..end.index()]);
-        }
+        indptr.extend_from_slice(
+            &self.indptr[start..start + len + 1]
+                .iter()
+                .map(|x| *x - kk_start)
+                .collect::<Vec<_>>(),
+        );
+        indices.extend_from_slice(&self.indices[kk_start.index()..kk_end.index()]);
+        data.extend_from_slice(&self.data[kk_start.index()..kk_end.index()]);
 
         CsrMatBase::new(indptr, indices, data, len, self.cols)
     }
@@ -142,7 +143,7 @@ where
     T: DataStorage,
     I: IndPtrStorage,
     // need to add this bound to make the transpose method work with usize rows
-    J: IndexStorage 
+    J: IndexStorage,
 {
     pub fn transpose(&self) -> CsrMatBase<T, I, J> {
         let mut indptr = vec![I::zero(); self.cols + 1];
@@ -170,7 +171,7 @@ where
                 let col = self.indices[idx];
                 let dest = indptr[col.index()];
                 indices[dest.index()] = J::from_usize(row);
-                data[dest.index()] = self.data[idx].clone();
+                data[dest.index()] = self.data[idx];
                 indptr[col.index()] += I::one();
             }
         }
@@ -184,10 +185,11 @@ where
     }
 }
 
-impl<T, I, J> CsrMatBase<T, I, J> where 
+impl<T, I, J> CsrMatBase<T, I, J>
+where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage
+    J: IndexStorage,
 {
     pub fn normalize_rows(&mut self)
     where
@@ -198,7 +200,7 @@ impl<T, I, J> CsrMatBase<T, I, J> where
             let end = self.indptr[row + 1];
             let mut sum = T::zero();
             for idx in start.index()..end.index() {
-                sum = sum + self.data[idx] * self.data[idx];
+                sum += self.data[idx] * self.data[idx];
             }
             let norm = sum.sqrt();
             for idx in start.index()..end.index() {
@@ -211,11 +213,11 @@ impl<T, I, J> CsrMatBase<T, I, J> where
 pub fn topn_from_csr_batches<T, I, J>(
     batches: Vec<CsrMatBase<T, I, J>>,
     ntop: usize,
-) -> CsrMatBase<T, I, J>  
-where     
+) -> CsrMatBase<T, I, J>
+where
     T: DataStorage,
     I: IndPtrStorage,
-    J: IndexStorage 
+    J: IndexStorage,
 {
     // naive implementation
     // iterate ove the rows and collect all possible ntop selections
@@ -227,19 +229,21 @@ where
         vec![batches.first().unwrap().rows; batches.len()]
     );
 
-    let mut indptr = vec![I::zero()];
-    let mut indices = Vec::new();
-    let mut data = Vec::new();
+    let mut indptr = Vec::with_capacity(batches.first().unwrap().rows + 1);
+    let mut indices = Vec::with_capacity(batches.first().unwrap().rows * ntop);
+    let mut data = Vec::with_capacity(batches.first().unwrap().rows * ntop);
+
+    indptr.push(I::zero());
 
     let rows = batches.first().unwrap().rows;
 
     for i in 0..rows {
-        let mut candidates = Vec::new();
+        let mut candidates = Vec::with_capacity(batches.len() * ntop);
         for batch in &batches {
             let start = batch.indptr[i];
             let end = batch.indptr[i + 1];
             for idx in start.index()..end.index() {
-                candidates.push((batch.indices[idx], batch.data[idx].clone()));
+                candidates.push((batch.indices[idx], batch.data[idx]));
             }
         }
         // candidates contains now all possible topn values for all batches

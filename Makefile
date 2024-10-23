@@ -1,7 +1,9 @@
 SHELL=/bin/bash
 
-install:
+install-py:
 	uv sync
+
+install: install-py
 	uv run maturin develop
 
 destroy:
