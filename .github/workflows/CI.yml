@@ -43,8 +43,7 @@ jobs:
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - run: uv venv --seed
-      - run: . .venv/bin/activate && uv pip install -r requirements.txt
+      - run: uv sync
       - run: make pre-commit
       - run: make install
       - run: make test
@@ -65,9 +64,7 @@ jobs:
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
       - run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - run: uv venv --seed
-      - run: . .venv/bin/activate && uv pip install -r requirements.txt
-      - run: . .venv/bin/activate && uv pip install polars==1.3  # min version
+      - run: uv sync
       - run: make install
       - run: make test
 

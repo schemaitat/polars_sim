@@ -9,7 +9,7 @@ Right now, we use a fixed vectorization, which is applied on the fly and eventua
 used in a sparse matrix multiplication combined with a top-n selection. This produces
 the cosine similarities of the individual string pairs.
 
-The `join_sim` function is similar to `join_asof` but for strings instead of timestamps.
+The `join_sim` function is similar to a left join or `join_asof` but for strings instead of timestamps.
 
 ## Installation
 
@@ -21,13 +21,7 @@ pip install polars_sim
 
 We use [uv](https://docs.astral.sh/uv/) for python package management. Furthermore, you need rust to be installed, see [install rust](https://www.rust-lang.org/tools/install). You won't need to activate an enviroment by yourself at any point. This is handled by uv. To get started, run
 ```bash
-# create a virtual environment
-uv venv --seed -p 3.11
-# install dependencies
-uv pip install -e .
-# install dev dependencies
-uv pip install -r requirements.txt
-# compiple rust code
+# install python dependencies and compile the rust code
 make install 
 # run tests
 make test
@@ -41,13 +35,13 @@ import polars_sim as ps
 
 df_left = pl.DataFrame(
     {
-        "name": ["Alice", "Bob", "Charlie", "David"],
+        "name": ["alice", "bob", "charlie", "david"],
     }
 )
 
 df_right = pl.DataFrame(
     {
-        "name": ["Ali", "Alice in Wonderland", "Bobby", "Tom"],
+        "name": ["ali", "alice in wonderland", "bobby", "tom"],
     }
 )
 
@@ -62,11 +56,11 @@ shape: (3, 3)
 ┌───────┬──────────┬─────────────────────┐
 │ name  ┆ sim      ┆ name_right          │
 │ ---   ┆ ---      ┆ ---                 │
-│ str   ┆ f64      ┆ str                 │
+│ str   ┆ f32      ┆ str                 │
 ╞═══════╪══════════╪═════════════════════╡
-│ Alice ┆ 0.57735  ┆ Ali                 │
-│ Alice ┆ 0.522233 ┆ Alice in Wonderland │
-│ Bob   ┆ 0.57735  ┆ Bobby               │
+│ alice ┆ 0.57735  ┆ ali                 │
+│ alice ┆ 0.522233 ┆ alice in wonderland │
+│ bob   ┆ 0.57735  ┆ bobby               │
 └───────┴──────────┴─────────────────────┘
 ```
 
@@ -74,8 +68,11 @@ shape: (3, 3)
 
 A benchmark can be executed with `make run-bench`. 
 In general, the performance heavily depends on the length of the dataframes.
-By default, the computation is parallelized over one of the two dataframes, depending on the sizes.
-If the left dataframe is comparatively small, the computation is parallelized over the right dataframe and vice versa. The behaviour can be fixed with the `threading_dimenstion` parameter.
+By default, the computation is parallelized over the left dataframe. However, serveral benchmarks 
+showed that if the right dataframe is much bigger than the left dataframe and no normalization is applied, it is faster to parallelize over the right dataframe. 
+
+If no normalization is applied, the performance is usually better since the a small uint type will
+be used for the sparse matrix multiplication, e.g. u16. Otherwise, all types will be of 32 bit size.
 
 # References
 

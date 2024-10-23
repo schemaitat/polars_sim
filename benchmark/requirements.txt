@@ -1,3 +1,4 @@
+pandas
 plotly
 polars
 faker

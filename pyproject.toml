@@ -1,6 +1,6 @@
 [project]
 name = "polars_sim"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
   { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
 ]
@@ -104,3 +104,12 @@ docstring-code-format = false
 # This only has an effect when the `docstring-code-format` setting is
 # enabled.
 docstring-code-line-length = "dynamic"
+
+[tool.uv]
+dev-dependencies = [
+    "maturin>=1.7.4",
+    "pip>=24.2",
+    "polars>=1.8.2",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.3",
+]

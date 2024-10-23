@@ -25,7 +25,14 @@ fn awesome_cossim(
     let df_right = pydf_right.into();
 
     let res = cossim::awesome_cossim(
-        df_left, df_right, col_left, col_right, ntop, threads, normalize, parallelize_left,
+        df_left,
+        df_right,
+        col_left,
+        col_right,
+        ntop,
+        threads,
+        normalize,
+        parallelize_left,
     )
     .map_err(PyPolarsErr::from)?;
 
