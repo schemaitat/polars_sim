@@ -23,7 +23,7 @@ where
     J: IndexStorage,
 {
     let mut ngram_index_mapping = HashMap::new();
-    let mut cur_index = J::one();
+    let mut cur_index = J::zero(); // Start from 0
     for ngram in ngrams.into_iter() {
         ngram_index_mapping.insert(ngram, cur_index);
         cur_index = cur_index + J::one();
