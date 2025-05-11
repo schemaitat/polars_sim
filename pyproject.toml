@@ -1,6 +1,6 @@
 [project]
 name = "polars-simed"
-version = "0.3.3"
+version = "0.3.4"
 authors = [
   { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
   { name="Edwardvaneechoud", email="evaneechoud@gmail.com" }
