@@ -24,7 +24,7 @@ def __():
     from multiprocessing import cpu_count
 
     import polars as pl
-    import polars_sim as ps
+    import polars_simed as ps
 
     from faker import Faker
 

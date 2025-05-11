@@ -40,7 +40,7 @@ fn awesome_cossim(
 }
 
 #[pymodule]
-fn _polars_sim(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
+fn _polars_simed(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(awesome_cossim, m)?)?;
     Ok(())
 }

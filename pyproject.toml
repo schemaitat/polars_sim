@@ -1,19 +1,21 @@
 [project]
-name = "polars_sim"
-version = "0.3.1"
+name = "polars-simed"
+version = "0.3.2"
 authors = [
   { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
+  { name="Edwardvaneechoud", email="evaneechoud@gmail.com" }
 ]
-description = "Fast similarity join for polars DataFrames."
+description = "Fast similarity join for polars DataFrames. Fork by Edwardvaneechoud with fixes."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10" # Check if this matches your CI (original CI showed 3.8+)
 dependencies = [
-    "polars[pyarrow]>=1.8.2",
+    "polars[pyarrow]>=1.8.2", # Make sure this polars version is what you need/tested with
 ]
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
+  # Add other relevant classifiers if you wish
 ]
 
 [build-system]
@@ -21,10 +23,12 @@ requires = ["maturin>=1.0,<2.0", "polars>=1.3.0"]
 build-backend = "maturin"
 
 [tool.maturin]
-module-name = "polars_sim._polars_sim"
+
+module-name = "polars_simed._polars_simed_lib"  # CHANGED
 strip = true
 python-source = "python"
 features = ["pyo3/extension-module"]
+
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

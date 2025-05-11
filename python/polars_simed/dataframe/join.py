@@ -1,6 +1,6 @@
 from typing import Literal
 import polars as pl
-from polars_sim._polars_sim import awesome_cossim
+from polars_simed._polars_sim import awesome_cossim
 
 
 def normalize_string_col(df: pl.DataFrame, col: str) -> pl.DataFrame:

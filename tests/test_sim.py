@@ -1,7 +1,7 @@
 import pytest
 import polars as pl
 from polars.testing import assert_frame_equal
-import polars_sim as ps
+import polars_simed as ps
 
 
 @pytest.mark.parametrize(

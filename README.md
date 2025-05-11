@@ -1,4 +1,4 @@
-# polars_sim
+# polars_simed
 
 ## Description
 
@@ -14,7 +14,7 @@ The `join_sim` function is similar to a left join or `join_asof` but for strings
 ## Installation
 
 ```bash
-pip install polars_sim
+pip install polars_simed
 ```
 
 ## Development
@@ -31,7 +31,7 @@ make test
 
 ```python
 import polars as pl
-import polars_sim as ps
+import polars_simed as ps
 
 df_left = pl.DataFrame(
     {
