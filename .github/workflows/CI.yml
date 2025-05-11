@@ -32,7 +32,7 @@ jobs:
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
-      - name: Install uv
+      - name: Install uv # For Linux tests
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Sync Python environment
         run: uv sync
@@ -57,7 +57,7 @@ jobs:
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
-      - name: Install uv
+      - name: Install uv # For Linux tests
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
       - name: Sync Python environment
         run: uv sync
@@ -111,6 +111,31 @@ jobs:
           name: wheels-macos-${{ matrix.target }}
           path: dist
 
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x86_64] # Can add 'i686' for 32-bit if needed
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10' # Adjust as needed
+      - name: Set up Rust
+        run: rustup show
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          # No manylinux for Windows
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.target }}
+          path: dist
+
   sdist:
     runs-on: ubuntu-latest
     steps:
@@ -123,26 +148,28 @@ jobs:
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-sdist
+          name: wheels-sdist # Consistent naming, even though it's an sdist
           path: dist
 
   release:
     name: Release
-    # This job will only run on pushes to the 'main' branch OR when a tag is pushed.
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    needs: [linux, macos, sdist, linux_tests]
+    # Ensure 'windows' is in the needs array
+    needs: [linux, macos, windows, sdist, linux_tests, linux_min_version_tests] # Added windows and linux_min_version_tests for completeness
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi # Ensure you have a 'pypi' environment in your repo settings with secrets if needed
     permissions:
-      id-token: write # IMPORTANT: mandatory for trusted publishing to PyPI
+      id-token: write # For trusted publishing
 
     steps:
       - uses: actions/download-artifact@v4
+        # This will download all artifacts into their respective named folders by default
       - name: List downloaded files
-        run: ls -R
+        run: ls -R # Helps to see the structure of downloaded artifacts
 
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         with:
           command: upload
+          # This glob should pick up all wheels and the sdist from their artifact directories
           args: --non-interactive --skip-existing */*.whl */*.tar.gz
