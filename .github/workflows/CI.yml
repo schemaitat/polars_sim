@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - main
-      - master
+      - master # You might want to remove 'master' if 'main' is your sole primary branch
     tags:
       - '*'
-  pull_request:
+  pull_request: # Keeps tests running for PRs to main/master
   workflow_dispatch:
 
 concurrency:
@@ -50,11 +50,10 @@ jobs:
         target: [x86_64]
         python-version: ["3.8"]
     steps:
-      - uses: actions/checkout@v3 # Consider @v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
@@ -67,13 +66,13 @@ jobs:
       - name: Run tests
         run: make test
 
-  linux: # Builds wheels for Linux
+  linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v3 # Consider @v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -85,18 +84,18 @@ jobs:
           sccache: 'true'
           manylinux: auto
       - name: Upload wheels
-        uses: actions/upload-artifact@v4 # UPDATED from v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.target }} # More specific artifact name
+          name: wheels-linux-${{ matrix.target }}
           path: dist
 
-  macos: # Builds wheels for macOS
+  macos:
     runs-on: macos-latest
     strategy:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v3 # Consider @v4
+      - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -107,44 +106,43 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels
-        uses: actions/upload-artifact@v4 # UPDATED from v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels-macos-${{ matrix.target }} # More specific artifact name
+          name: wheels-macos-${{ matrix.target }}
           path: dist
 
-  sdist: # Builds the source distribution
+  sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # Consider @v4
+      - uses: actions/checkout@v3
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4 # UPDATED from v3
+        uses: actions/upload-artifact@v4
         with:
-          name: wheels-sdist # Changed name for clarity, though it contains sdist
+          name: wheels-sdist
           path: dist
 
   release:
     name: Release
-    # if: "startsWith(github.ref, 'refs/tags/')" # Recommended to uncomment for actual releases
-    needs: [linux, macos, sdist] # Depends on the successful completion of build jobs
+    # This job will only run on pushes to the 'main' branch OR when a tag is pushed.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    needs: [linux, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing to PyPI
+      id-token: write # IMPORTANT: mandatory for trusted publishing to PyPI
 
     steps:
-      # Download all artifacts (wheels and sdist)
-      # The download action will place them into directories named after the artifact names
-      - uses: actions/download-artifact@v4 # UPDATED from v3
-      - name: List downloaded files # For debugging, to see what was downloaded and where
+      - uses: actions/download-artifact@v4
+      - name: List downloaded files
         run: ls -R
 
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
         with:
           command: upload
-          args: --non-interactive --skip-existing */*.whl */*.tar.gz # Adjusted to find artifacts in subdirectories
+          args: --non-interactive --skip-existing */*.whl */*.tar.gz
