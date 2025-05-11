@@ -1,15 +1,15 @@
 [project]
 name = "polars-simed"
-version = "0.3.2"
+version = "0.3.3"
 authors = [
   { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
   { name="Edwardvaneechoud", email="evaneechoud@gmail.com" }
 ]
 description = "Fast similarity join for polars DataFrames. Fork by Edwardvaneechoud with fixes."
 readme = "README.md"
-requires-python = ">=3.10" # Check if this matches your CI (original CI showed 3.8+)
+requires-python = ">=3.10"
 dependencies = [
-    "polars[pyarrow]>=1.8.2", # Make sure this polars version is what you need/tested with
+    "polars[pyarrow]>=1.8.2",
 ]
 classifiers = [
   "Programming Language :: Rust",

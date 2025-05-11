@@ -1194,8 +1194,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "polars-simed-rust"
-version = "0.3.2"
+name = "polars-simed"
+version = "0.3.3"
 dependencies = [
  "itertools",
  "lazy_static",
