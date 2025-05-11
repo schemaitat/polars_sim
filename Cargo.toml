@@ -1,9 +1,6 @@
 [package]
-# It's good practice to make the Rust crate name slightly distinct
-# if the Python package name is very similar, to avoid confusion
-# if you were to ever publish this crate to crates.io.
-name = "polars-simed-rust"  # UPDATED (Suggestion, or keep as "polars-simed" if you prefer, but ensure version and lib.name are correct)
-version = "0.3.2"            # UPDATED to match pyproject.toml
+name = "polars-simed"
+version = "0.3.3"
 edition = "2021"
 
 [lib]
