@@ -1,15 +1,13 @@
 [project]
 name = "polars_sim"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
   { name="Dr. André Schemaitat", email="a.schemaitat@gmail.com" },
 ]
 description = "Fast similarity join for polars DataFrames."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "polars[pyarrow]>=1.8.2",
-]
+dependencies = []
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -57,12 +55,10 @@ exclude = [
     "venv",
 ]
 
-# Same as Black.
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.8
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
@@ -106,10 +102,12 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.uv]
-dev-dependencies = [
-    "maturin>=1.7.4",
+
+[dependency-groups]
+dev = [
+    "maturin>=1.10.2",
     "pip>=24.2",
-    "polars>=1.8.2",
+    "polars[pyarrow]==1.31",
     "pre-commit>=4.0.1",
     "pytest>=8.3.3",
 ]

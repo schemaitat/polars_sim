@@ -1,24 +1,25 @@
 import marimo
 
-__generated_with = "0.9.10"
+__generated_with = "0.18.0"
 app = marimo.App(width="medium", app_title="Benchmark", auto_download=["html"])
 
 
 @app.cell
-def __():
+def _():
     import marimo as mo
-
     return (mo,)
 
 
 @app.cell
-def __(mo):
-    mo.md("""# Benchmark""")
+def _(mo):
+    mo.md("""
+    # Benchmark
+    """)
     return
 
 
 @app.cell
-def __():
+def _():
     import time
 
     from multiprocessing import cpu_count
@@ -29,24 +30,22 @@ def __():
     from faker import Faker
 
     import plotly.express as px
-
     return Faker, cpu_count, pl, ps, px, time
 
 
 @app.cell
-def __(mo):
+def _(mo):
     def get_arg(name: str, type, default):
         arg_val = mo.cli_args().get(name)
         if arg_val is None:
             return default
         else:
             return type(arg_val)
-
     return (get_arg,)
 
 
 @app.cell
-def __(get_arg):
+def _(get_arg):
     size_left = get_arg("size_left", int, 5000)
     size_right = get_arg("size_right", int, 10_000)
     size_left, size_right
@@ -54,34 +53,35 @@ def __(get_arg):
 
 
 @app.cell
-def __(pl):
+def _(pl):
     def append_row(df: pl.DataFrame, data):
         """
         Append a row to a polars dataframe.
         """
         return pl.concat([df, pl.DataFrame(data)], how="vertical_relaxed")
-
     return (append_row,)
 
 
 @app.cell
-def __(Faker, size_left, size_right):
+def _(Faker, size_left, size_right):
     fake = Faker()
     fake.seed_instance(4321)
     names_small = [fake.name() for _ in range(size_left)]
     names_big = [fake.name() for _ in range(size_right)]
-    return fake, names_big, names_small
+    return names_big, names_small
 
 
 @app.cell
-def __(names_big, names_small, pl):
+def _(names_big, names_small, pl):
     df_left = pl.DataFrame({"name": names_small})
     df_right = pl.DataFrame({"name": names_big})
     return df_left, df_right
 
 
 @app.cell
-def __(Iterable, append_row, pl, ps, time):
+def _(append_row, pl, ps, time):
+    from typing import Iterable
+
     def benchmark(
         df_left: pl.DataFrame,
         df_right: pl.DataFrame,
@@ -130,12 +130,11 @@ def __(Iterable, append_row, pl, ps, time):
             )
 
         return df_bench
-
     return (benchmark,)
 
 
 @app.cell
-def __(px):
+def _(px):
     def plot_benchmark(df_bench):
         argument_name = df_bench["argument_name"].unique()[0]
         size_left = df_bench["size_left"].unique()[0]
@@ -149,12 +148,11 @@ def __(px):
         )
 
         return fig
-
     return (plot_benchmark,)
 
 
 @app.cell
-def __(cpu_count, df_left, df_right, pl):
+def _(cpu_count, df_left, df_right, pl):
     benchmarks = {
         "ntop": {
             "df_left": df_left,
@@ -170,7 +168,7 @@ def __(cpu_count, df_left, df_right, pl):
             "argument_values": range(1, cpu_count() + 1),
             "value_dtype": pl.Int32,
         },
-        "normalizatåion": {
+        "normalization": {
             "df_left": df_left,
             "df_right": df_right,
             "argument_name": "normalization",
@@ -189,7 +187,7 @@ def __(cpu_count, df_left, df_right, pl):
 
 
 @app.cell
-def __(benchmark, benchmarks, plot_benchmark):
+def _(benchmark, benchmarks, plot_benchmark):
     figs = {}
     for name, kw in benchmarks.items():
         df_l = benchmark(on="name", **kw, threading_dimension="left")
@@ -197,17 +195,17 @@ def __(benchmark, benchmarks, plot_benchmark):
 
         figs[f"{name}_left"] = plot_benchmark(df_l)
         figs[f"{name}_right"] = plot_benchmark(df_r)
-    return df_l, df_r, figs, kw, name
+    return (figs,)
 
 
 @app.cell
-def __(figs):
+def _(figs):
     figs
     return
 
 
 @app.cell
-def __():
+def _():
     return
 
 

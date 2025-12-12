@@ -8,6 +8,11 @@ import polars_sim as ps
     "left, right, expected",
     [
         (
+            pl.DataFrame({"s": ["zzz"]}),
+            pl.DataFrame({"s": ["zzz"]}),
+            pl.DataFrame({"sim": [1], "row": [0], "col": [0]}),
+        ),
+        (
             pl.DataFrame({"s": ["aaa"]}),
             pl.DataFrame({"s": ["aaa"]}),
             pl.DataFrame({"sim": [1], "row": [0], "col": [0]}),
@@ -50,7 +55,7 @@ def test_join_sim_basic(left, right, expected):
     kwargs_to_test = [
         {"threads": 2, "threading_dimension": "right"},
         # {"threads": 2, "threading_dimension": "right"},
-        # {"threads" : None, "threading_dimension": "left"},
+        {"threads" : 2, "threading_dimension": "left"},
         # {"threads" : None, "threading_dimension": "right"},
         # {"threading_dimension": "auto"}
     ]

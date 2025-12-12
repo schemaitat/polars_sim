@@ -2,6 +2,7 @@ use crate::csr::*;
 
 use crate::helper::split_offsets;
 use itertools::{iproduct, Itertools};
+use lazy_static::lazy_static;
 use ngrams::Ngram;
 use polars::prelude::*;
 use rayon::prelude::*;
@@ -10,25 +11,17 @@ use std::collections::HashMap;
 type ICsrMat = CsrMatBase<u16, u32, u32>;
 type FCsrMat = CsrMatBase<f32, u32, u32>;
 
-fn generate_ngrams() -> Vec<Vec<char>> {
+fn generate_ngram_index_mapping() -> HashMap<Vec<char>, u32> {
     let alphabet = ('a'..='z').collect::<Vec<char>>();
 
     iproduct!(alphabet.iter(), alphabet.iter(), alphabet.iter())
-        .map(|(a, b, c)| vec![*a, *b, *c])
-        .collect::<Vec<Vec<char>>>()
+        .enumerate()
+        .map(|(i, (a, b, c))| (vec![*a, *b, *c], i as u32))
+        .collect()
 }
 
-fn generate_ngram_index_mapping<J>(ngrams: Vec<Vec<char>>) -> HashMap<Vec<char>, J>
-where
-    J: IndexStorage,
-{
-    let mut ngram_index_mapping = HashMap::new();
-    let mut cur_index = J::one();
-    for ngram in ngrams.into_iter() {
-        ngram_index_mapping.insert(ngram, cur_index);
-        cur_index = cur_index + J::one();
-    }
-    ngram_index_mapping
+lazy_static! {
+    static ref NGRAM_MAPPING: HashMap<Vec<char>, u32> = generate_ngram_index_mapping();
 }
 
 fn transform<T, I, J>(sa: &Series) -> CsrMatBase<T, I, J>
@@ -43,8 +36,6 @@ where
 
     indptr.push(I::zero());
 
-    let mapping = generate_ngram_index_mapping(generate_ngrams());
-
     let sa = sa.str().unwrap();
 
     for s in sa.into_iter() {
@@ -56,16 +47,16 @@ where
         // only add ngram once
         // make sure to make match this with the csr::normlize_rows method
         for ngram_value in ngram.unique() {
-            if let Some(index) = mapping.get(&ngram_value) {
+            if let Some(&index) = NGRAM_MAPPING.get(&ngram_value) {
                 nnz += I::one();
-                indices.push(*index);
+                indices.push(J::from_usize(index as usize));
                 data.push(T::one());
             }
         }
         indptr.push(*indptr.last().unwrap() + nnz);
     }
 
-    CsrMatBase::new(indptr, indices, data, sa.len(), mapping.len())
+    CsrMatBase::new(indptr, indices, data, sa.len(), NGRAM_MAPPING.len())
 }
 
 fn sparse_dot_topn<T, I, J>(
