@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: "*"
+          pattern: "wheels-*,sdist"
           merge-multiple: true
       - name: Publish to PyPI
         uses: PyO3/maturin-action@v1
