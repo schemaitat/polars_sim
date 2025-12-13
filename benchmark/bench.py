@@ -7,6 +7,7 @@ app = marimo.App(width="medium", app_title="Benchmark", auto_download=["html"])
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
@@ -30,6 +31,7 @@ def _():
     from faker import Faker
 
     import plotly.express as px
+
     return Faker, cpu_count, pl, ps, px, time
 
 
@@ -41,6 +43,7 @@ def _(mo):
             return default
         else:
             return type(arg_val)
+
     return (get_arg,)
 
 
@@ -59,6 +62,7 @@ def _(pl):
         Append a row to a polars dataframe.
         """
         return pl.concat([df, pl.DataFrame(data)], how="vertical_relaxed")
+
     return (append_row,)
 
 
@@ -130,6 +134,7 @@ def _(append_row, pl, ps, time):
             )
 
         return df_bench
+
     return (benchmark,)
 
 
@@ -148,6 +153,7 @@ def _(px):
         )
 
         return fig
+
     return (plot_benchmark,)
 
 
