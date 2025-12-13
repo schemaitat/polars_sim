@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - '*'
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
@@ -22,9 +16,6 @@ permissions:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    if: |
-      (startsWith(github.ref, 'refs/tags/') && github.event_name == 'push') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/'))
     strategy:
       matrix:
         target: [x86_64, aarch64]
@@ -48,9 +39,6 @@ jobs:
 
   macos:
     runs-on: macos-latest
-    if: |
-      (startsWith(github.ref, 'refs/tags/') && github.event_name == 'push') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/'))
     strategy:
       matrix:
         target: [x86_64, aarch64]
@@ -73,9 +61,6 @@ jobs:
 
   sdist:
     runs-on: ubuntu-latest
-    if: |
-      (startsWith(github.ref, 'refs/tags/') && github.event_name == 'push') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/'))
     steps:
       - uses: actions/checkout@v4
       - name: Build sdist
@@ -91,9 +76,6 @@ jobs:
 
   release:
     name: Release
-    if: |
-      (startsWith(github.ref, 'refs/tags/') && github.event_name == 'push') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/'))
     needs: [linux, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
