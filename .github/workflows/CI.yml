@@ -27,41 +27,21 @@ jobs:
     strategy:
       matrix:
         target: [x86_64]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Set up Rust
-        run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.4
-      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - run: uv sync
-      - run: make pre-commit
-      - run: make install
-      - run: make test
-
-  linux_min_version_tests:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86_64]
-        python-version: ["3.8"]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Set up Rust
         run: rustup show
-      - uses: mozilla-actions/sccache-action@v0.0.3
-      - run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - run: uv sync
-      - run: make install
-      - run: make test
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - run: uv run pre-commit run --all-files
+      - run: uv run maturin develop
+      - run: uv run pytest tests
 
   linux:
     runs-on: ubuntu-latest
