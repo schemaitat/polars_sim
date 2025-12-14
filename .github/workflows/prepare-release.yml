@@ -33,6 +33,14 @@ jobs:
         run: |
           sed -i 's/^__version__ = ".*"/__version__ = "${{ inputs.version }}"/' python/polars_sim/__init__.py
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Update lockfile
+        run: uv lock
+
       - name: Verify version updates
         run: |
           echo "pyproject.toml version:"
@@ -42,7 +50,7 @@ jobs:
 
       - name: Commit version bump
         run: |
-          git add pyproject.toml python/polars_sim/__init__.py
+          git add pyproject.toml python/polars_sim/__init__.py uv.lock
           git commit -m "Bump version to ${{ inputs.version }}"
 
 
