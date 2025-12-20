@@ -1,0 +1,35 @@
+set shell := ["bash", "-c"]
+
+# Install Python dependencies
+install-py:
+    uv sync
+
+# Install development version
+install: install-py
+    uv run maturin develop
+
+# Clean up build artifacts and environment
+destroy:
+    rm -rf .venv
+    rm -rf target
+    rm -rf dist
+
+# Install release version
+install-release:
+    uv run maturin develop --release
+
+# Run pre-commit hooks
+pre-commit:
+    uv run pre-commit run --all-files
+
+# Run tests
+test:
+    uv run pytest tests
+
+# Edit benchmark notebook
+edit-bench:
+    uv run --with-requirements benchmark/requirements.txt marimo edit benchmark/bench.py
+
+# Run benchmark and export to HTML
+run-bench:
+    uv run --with-requirements benchmark/requirements.txt marimo export html --output benchmark/bench.html benchmark/bench.py -- -size_left 5000 -size_right 100000
