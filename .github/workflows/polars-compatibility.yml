@@ -67,5 +67,8 @@ jobs:
         echo "🔬 Testing polars_sim with Polars ${{ matrix.polars-version }}"
         echo "📦 Using wheel: $(basename $wheel_file)"
         
-        # Run tests with isolated polars version
-        uv run --isolated --with polars==${{ matrix.polars-version }} --with "$wheel_file" --with pytest python -m pytest tests/ -v
+        # Create temporary directory to avoid building project from source
+        cd /tmp
+        
+        # Run tests with isolated polars version using only the wheel
+        uv run --isolated --with polars==${{ matrix.polars-version }} --with "$GITHUB_WORKSPACE/$wheel_file" --with pytest python -m pytest "$GITHUB_WORKSPACE/tests/" -v
