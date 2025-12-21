@@ -1,0 +1,71 @@
+name: Polars Compatibility Test
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'feat/*', 'fix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build wheel
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: mozilla-actions/sccache-action@v0.0.4
+    
+    - name: Set up Rust
+      run: rustup show
+    
+    - name: Install uv and set the Python version
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: "3.11"
+        enable-cache: true
+    
+    - name: Install Python dependencies
+      run: uv sync --locked --all-groups
+    
+    - name: Build wheel
+      run: uv run maturin build --release
+    
+    - name: Upload wheel
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheel
+        path: target/wheels/*.whl
+
+  test-compatibility:
+    name: Test Polars ${{ matrix.polars-version }}
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        polars-version: ["1.31.0", "1.30.0", "1.29.0", "1.28.0"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv and set the Python version
+      uses: astral-sh/setup-uv@v7
+      with:
+        python-version: "3.11"
+        enable-cache: true
+    
+    - name: Download wheel
+      uses: actions/download-artifact@v3
+      with:
+        name: wheel
+        path: target/wheels/
+    
+    - name: Test with Polars ${{ matrix.polars-version }}
+      run: |
+        wheel_file=$(ls target/wheels/*.whl | head -1)
+        echo "🔬 Testing polars_sim with Polars ${{ matrix.polars-version }}"
+        echo "📦 Using wheel: $(basename $wheel_file)"
+        
+        # Run tests with isolated polars version
+        uv run --isolated --with polars==${{ matrix.polars-version }} --with "$wheel_file" --with pytest python -m pytest tests/ -v
