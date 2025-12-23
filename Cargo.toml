@@ -14,9 +14,11 @@ itertools = "0.13.0"
 lazy_static = "1.5.0"
 ngrams = "1.0.1"
 num = "0.4.3"
-polars = "0.43.1"
-polars-core = "0.43.1"
-polars-lazy = "0.43.1"
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py38"] }
-pyo3-polars = { version = "0.17", features = ["derive", "lazy"] }
+# see https://github.com/pola-rs/polars/issues/25148 for the timezones feature
+polars = { version = "0.52.0", features = ["lazy", "timezones"] }
+polars-core = "0.52.0"
+polars-lazy = "0.52.0"
+pyo3 = { version = "0.26.0", features = ["extension-module", "abi3-py38"] }
+pyo3-ffi = "0.26.0"
+pyo3-polars = { version = "0.25.0", features = ["derive", "lazy"] }
 rayon = "1.10.0"

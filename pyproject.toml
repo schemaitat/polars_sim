@@ -7,7 +7,6 @@ authors = [
 description = "Fast similarity join for polars DataFrames."
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
-dependencies = []
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -17,6 +16,29 @@ classifiers = [
 [build-system]
 requires = ["maturin>=1.0,<2.0", "polars>=1.3.0"]
 build-backend = "maturin"
+
+
+dependencies = []
+
+[tool.uv]
+
+# prevent uv from compiling the rust code in release mode
+package = false
+
+cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+
+[dependency-groups]
+dev = [
+    "maturin>=1.10.2",
+    "maturin-import-hook>=0.3.0",
+    "pip>=24.2",
+    "polars[pyarrow]==1.31",
+    "pre-commit>=4.0.1",
+    "pytest>=8.3.3",
+    "rust-just>=1.45.0",
+]
+
+
 
 [tool.maturin]
 module-name = "polars_sim._polars_sim"
@@ -101,13 +123,3 @@ docstring-code-format = false
 # enabled.
 docstring-code-line-length = "dynamic"
 
-[tool.uv]
-
-[dependency-groups]
-dev = [
-    "maturin>=1.10.2",
-    "pip>=24.2",
-    "polars[pyarrow]==1.31",
-    "pre-commit>=4.0.1",
-    "pytest>=8.3.3",
-]
