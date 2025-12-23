@@ -171,8 +171,8 @@ pyarrow = [
 
 [[package]]
 name = "polars-sim"
-version = "0.3.6"
-source = { editable = "." }
+version = "0.3.7"
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
