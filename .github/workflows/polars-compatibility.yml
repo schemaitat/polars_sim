@@ -11,6 +11,8 @@ jobs:
   build:
     name: Build wheel
     runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.get-versions.outputs.versions }}
     steps:
     - uses: actions/checkout@v4
     
@@ -24,6 +26,15 @@ jobs:
       with:
         python-version: "3.11"
         enable-cache: true
+    
+    - name: Get Polars versions to test
+      id: get-versions
+      run: |
+        versions=$(uvx pip index versions polars --json | \
+          python3 scripts/get_polars_versions.py | \
+          head -n 10 | \
+          jq -R -s -c 'split("\n") | map(select(length > 0))')
+        echo "versions=$versions" >> $GITHUB_OUTPUT
     
     - name: Install Python dependencies
       run: uv sync --locked --all-groups
@@ -44,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        polars-version: ["1.31.0", "1.30.0", "1.29.0", "1.28.0"]
+        polars-version: ${{ fromJson(needs.build.outputs.versions) }}
     
     steps:
     - uses: actions/checkout@v4
@@ -59,16 +70,12 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: wheel
-        path: target/wheels/
+        path: dist/
     
     - name: Test with Polars ${{ matrix.polars-version }}
       run: |
-        wheel_file=$(ls target/wheels/*.whl | head -1)
-        echo "🔬 Testing polars_sim with Polars ${{ matrix.polars-version }}"
-        echo "📦 Using wheel: $(basename $wheel_file)"
-        
-        # Create temporary directory to avoid building project from source
-        cd /tmp
-        
-        # Run tests with isolated polars version using only the wheel
-        uv run --isolated --with polars==${{ matrix.polars-version }} --with "$GITHUB_WORKSPACE/$wheel_file" --with pytest python -m pytest "$GITHUB_WORKSPACE/tests/" -v
+        uv run --no-project --isolated \
+          --with polars==${{ matrix.polars-version }} \
+          --with pyarrow \
+          --with dist/*.whl \
+          python scripts/test_polars_version.py

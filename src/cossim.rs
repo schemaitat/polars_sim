@@ -24,7 +24,7 @@ lazy_static! {
     static ref NGRAM_MAPPING: HashMap<Vec<char>, u32> = generate_ngram_index_mapping();
 }
 
-fn transform<T, I, J>(sa: &Series) -> CsrMatBase<T, I, J>
+fn transform<T, I, J>(sa: &Column) -> CsrMatBase<T, I, J>
 where
     T: DataStorage,
     I: IndPtrStorage,
@@ -227,9 +227,9 @@ where
     }
 
     DataFrame::new(vec![
-        Series::new("row".into(), rows),
-        Series::new("col".into(), &indices),
-        Series::new("sim".into(), data),
+        Column::new("row".into(), rows),
+        Column::new("col".into(), indices),
+        Column::new("sim".into(), data),
     ])
 }
 
@@ -255,9 +255,9 @@ where
     }
 
     DataFrame::new(vec![
-        Series::new("row".into(), rows),
-        Series::new("col".into(), &indices),
-        Series::new("sim".into(), data),
+        Column::new("row".into(), rows),
+        Column::new("col".into(), &indices),
+        Column::new("sim".into(), data),
     ])
 }
 

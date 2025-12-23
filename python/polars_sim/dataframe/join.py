@@ -129,6 +129,7 @@ def join_sim(
         left_on = f"{left_on}_normalized"
         right_on = f"{right_on}_normalized"
 
+    # see src/lib.rs the signature
     _map = awesome_cossim(
         left, right, left_on, right_on, top_n, threads, normalize, parallelize_left
     ).cast(
