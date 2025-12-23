@@ -40,7 +40,7 @@ jobs:
       run: uv sync --locked --all-groups
     
     - name: Build wheel
-      run: uv run maturin build --release
+      run: uv run maturin build
     
     - name: Upload wheel
       uses: actions/upload-artifact@v4
