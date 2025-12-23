@@ -32,7 +32,6 @@ jobs:
       run: |
         versions=$(uvx pip index versions polars --json | \
           python3 scripts/get_polars_versions.py | \
-          head -n 10 | \
           jq -R -s -c 'split("\n") | map(select(length > 0))')
         echo "versions=$versions" >> $GITHUB_OUTPUT
     

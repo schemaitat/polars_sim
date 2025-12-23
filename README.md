@@ -1,5 +1,7 @@
 # polars_sim
 
+[![Polars >= 1 Compatibility Test](https://github.com/schemaitat/polars_sim/actions/workflows/polars-compatibility.yml/badge.svg)](https://github.com/schemaitat/polars_sim/actions/workflows/polars-compatibility.yml)
+
 ## Description
 
 Implements an **approximate join** of two polars dataframes based on string columns.
