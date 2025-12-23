@@ -9,7 +9,6 @@ use pyo3_polars::{PolarsAllocator, PyDataFrame};
 #[global_allocator]
 static ALLOC: PolarsAllocator = PolarsAllocator::new();
 
-
 #[pyfunction]
 #[pyo3(signature=(pydf_left, pydf_right, col_left, col_right, ntop, threads=None, normalize=None, parallelize_left=None))]
 fn awesome_cossim(

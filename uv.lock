@@ -93,6 +93,19 @@ wheels = [
 ]
 
 [[package]]
+name = "maturin-import-hook"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/a1/3b007a4132265d5da19096d6835cd4c7e9908afb9156afb96d19ff190f39/maturin_import_hook-0.3.0.tar.gz", hash = "sha256:cdd51ce267663c437c4aea1bfd5f7ee5884b54a9d866ea924227d68d758bbba2", size = 30785, upload-time = "2025-06-08T15:43:57.801Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9f/55/0c17a1fccec90dffbb1d904d7ddb7971e4e95f994c6264637e8fe66a5b86/maturin_import_hook-0.3.0-py3-none-any.whl", hash = "sha256:f5d20b4bc3056d84170dc08fe655160421b28d2b5128b48f55312315cdbb2cfe", size = 30848, upload-time = "2025-06-08T15:43:56.298Z" },
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.9.1"
 source = { registry = "https://pypi.org/simple" }
@@ -159,11 +172,12 @@ pyarrow = [
 [[package]]
 name = "polars-sim"
 version = "0.3.5"
-source = { editable = "." }
+source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
     { name = "maturin" },
+    { name = "maturin-import-hook" },
     { name = "pip" },
     { name = "polars", extra = ["pyarrow"] },
     { name = "pre-commit" },
@@ -176,6 +190,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "maturin", specifier = ">=1.10.2" },
+    { name = "maturin-import-hook", specifier = ">=0.3.0" },
     { name = "pip", specifier = ">=24.2" },
     { name = "polars", extras = ["pyarrow"], specifier = "==1.31" },
     { name = "pre-commit", specifier = ">=4.0.1" },

@@ -2,11 +2,11 @@ set shell := ["bash", "-c"]
 
 # Install Python dependencies
 install-py:
-    uv sync
+    uv sync --all-groups --all-extras
 
 # Install development version
 install: install-py
-    uv run maturin develop --uv
+    uv run maturin develop
 
 # Clean up build artifacts and environment
 destroy:

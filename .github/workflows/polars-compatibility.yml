@@ -74,8 +74,9 @@ jobs:
     
     - name: Test with Polars ${{ matrix.polars-version }}
       run: |
+        wheel_file=$(ls dist/*.whl)
         uv run --no-project --isolated \
           --with polars==${{ matrix.polars-version }} \
           --with pyarrow \
-          --with dist/*.whl \
+          --with "$wheel_file" \
           python scripts/test_polars_version.py

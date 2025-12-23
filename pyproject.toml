@@ -21,15 +21,23 @@ build-backend = "maturin"
 dependencies = []
 
 [tool.uv]
+
+# prevent uv from compiling the rust code in release mode
+package = false
+
+cache-keys = [{file = "pyproject.toml"}, {file = "Cargo.toml"}, {file = "**/*.rs"}]
+
 [dependency-groups]
 dev = [
     "maturin>=1.10.2",
+    "maturin-import-hook>=0.3.0",
     "pip>=24.2",
     "polars[pyarrow]==1.31",
     "pre-commit>=4.0.1",
     "pytest>=8.3.3",
     "rust-just>=1.45.0",
 ]
+
 
 
 [tool.maturin]
