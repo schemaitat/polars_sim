@@ -43,6 +43,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - run: uv sync --locked --all-groups
+      - run: uv run maturin develop
       - run: uv run pytest tests
 
   linux:
