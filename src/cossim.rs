@@ -236,9 +236,9 @@ where
     }
 
     DataFrame::new(vec![
-        Series::new("row".into(), rows),
-        Series::new("col".into(), &indices),
-        Series::new("sim".into(), data),
+        Column::new("row".into(), rows),
+        Column::new("col".into(), &indices),
+        Column::new("sim".into(), data),
     ])
 }
 
@@ -264,9 +264,9 @@ where
     }
 
     DataFrame::new(vec![
-        Series::new("row".into(), rows),
-        Series::new("col".into(), &indices),
-        Series::new("sim".into(), data),
+        Column::new("row".into(), rows),
+        Column::new("col".into(), &indices),
+        Column::new("sim".into(), data),
     ])
 }
 
@@ -311,20 +311,20 @@ pub(super) fn awesome_cossim(
     let normalize = normalize.unwrap_or(false);
     let parallelize_left = parallelize_left.unwrap_or(true);
 
-    let sa = df_left.column(col_left).unwrap();
-    let sb = df_right.column(col_right).unwrap();
+    let sa = df_left.column(col_left).unwrap().as_materialized_series();
+    let sb = df_right.column(col_right).unwrap().as_materialized_series();
 
     match normalize {
         true => {
-            let mut a: FCsrMat = transform(sa);
-            let mut b: FCsrMat = transform(sb);
+            let mut a: FCsrMat = transform(&sa);
+            let mut b: FCsrMat = transform(&sb);
             a.normalize_rows();
             b.normalize_rows();
             compute_cossim(a, b, ntop, threads, parallelize_left)
         }
         false => {
-            let a: ICsrMat = transform(sa);
-            let b: ICsrMat = transform(sb);
+            let a: ICsrMat = transform(&sa);
+            let b: ICsrMat = transform(&sb);
             compute_cossim(a, b, ntop, threads, parallelize_left)
         }
     }
